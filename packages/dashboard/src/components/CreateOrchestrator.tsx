@@ -82,7 +82,7 @@ export function CreateOrchestrator() {
           </div>
           <h2 className="text-xl font-bold text-white mb-1">{result.name} is ready</h2>
           <p className="text-sm text-gray-400 mb-6">
-            Your personal AI agent has been created on Stellar Testnet.
+            Your personal AI agent has been created on Stellar Testnet with XLM and testnet USDC — ready to pay agents immediately.
           </p>
           <div className="bg-gray-800 rounded-xl p-3 mb-4">
             <p className="text-xs text-gray-500 mb-1">Orchestrator wallet</p>
@@ -105,7 +105,7 @@ export function CreateOrchestrator() {
   // ── Creation in progress ───────────────────────────────────────────────────
   const isWorking = step === 'creating' || step === 'signing';
   const statusText =
-    step === 'creating' ? `Creating ${name || 'your agent'}…` :
+    step === 'creating' ? `Creating ${name || 'your agent'} — funding wallet & adding USDC…` :
     step === 'signing'  ? 'Check Freighter to sign…' : '';
 
   return (
@@ -203,7 +203,7 @@ export function CreateOrchestrator() {
         </button>
 
         <p className="mt-4 text-center text-xs text-gray-600">
-          A Stellar wallet will be created for your agent on testnet
+          A Stellar wallet is created, funded with XLM, and given a USDC balance automatically
         </p>
       </div>
     </div>
