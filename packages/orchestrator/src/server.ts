@@ -1034,4 +1034,20 @@ server.listen(PORT, () => {
   console.log(`[Orchestrator] Registry: ${REGISTRY_URL}`);
   console.log(`[Orchestrator] WebSocket: ws://localhost:${PORT}/ws`);
   console.log(`[Orchestrator] Plan approval timeout: ${APPROVAL_TIMEOUT_MS / 1000}s`);
+
+  // Log wallet balance so Render logs show if orchestrator is unfunded
+  fetch(`${HORIZON_URL}/accounts/${ORCHESTRATOR_ADDRESS}`, { signal: AbortSignal.timeout(10000) })
+    .then(r => r.json())
+    .then((account: any) => {
+      const xlm = account?.balances?.find((b: any) => b.asset_type === 'native');
+      const usdc = account?.balances?.find((b: any) => b.asset_code === 'USDC');
+      console.log(`[Orchestrator] XLM balance:  ${xlm?.balance ?? 'N/A'}`);
+      console.log(`[Orchestrator] USDC balance: ${usdc?.balance ?? 'NO TRUSTLINE — payments will fail'}`);
+      if (!usdc) {
+        console.warn('[Orchestrator] ⚠ No USDC trustline on orchestrator wallet — add one via /api/orchestrators/usdc-trustline or the setup scripts');
+      }
+    })
+    .catch(() => {
+      console.warn(`[Orchestrator] ⚠ Could not fetch wallet balance for ${ORCHESTRATOR_ADDRESS} — account may not exist on testnet (run friendbot)`);
+    });
 });

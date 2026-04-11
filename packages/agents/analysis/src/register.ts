@@ -5,6 +5,8 @@ const PORT = process.env.ANALYSIS_AGENT_PORT || '4004';
 const SELF_URL = process.env.ANALYSIS_AGENT_SELF_URL || `http://localhost:${PORT}`;
 const SECRET_KEY = process.env.ANALYSIS_AGENT_SECRET_KEY!;
 
+let _attempt = 0;
+
 export async function registerSelf(): Promise<void> {
   const keypair = Keypair.fromSecret(SECRET_KEY);
 
@@ -27,13 +29,22 @@ export async function registerSelf(): Promise<void> {
     });
     if (res.ok) {
       console.log(`[AnalysisBot] Registered with registry at ${REGISTRY_URL}`);
-      setTimeout(registerSelf, 4 * 60 * 1000); // re-register every 4 min (Render ephemeral disk)
+      _attempt = 0;
+      // Heartbeat: re-register every 4 min so registry re-starts don't lose us
+      setTimeout(registerSelf, 4 * 60 * 1000);
     } else {
-      console.warn(`Registry responded ${res.status}, retrying in 10s...`);
-      setTimeout(registerSelf, 10000);
+      scheduleRetry('AnalysisBot');
     }
   } catch {
-    console.warn('[AnalysisBot] Registry unavailable, retrying in 5s...');
-    setTimeout(registerSelf, 5000);
+    scheduleRetry('AnalysisBot');
   }
+}
+
+function scheduleRetry(label: string): void {
+  // Fast retries at start (5s, 15s, 30s), then slow (60s) for registry cold-start
+  const delays = [5000, 15000, 30000, 60000];
+  const delay = delays[Math.min(_attempt, delays.length - 1)];
+  console.warn(`[${label}] Registry unavailable, retrying in ${delay / 1000}s...`);
+  _attempt++;
+  setTimeout(registerSelf, delay);
 }
