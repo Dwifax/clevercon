@@ -14,7 +14,7 @@
     "dev:analysis": "cd packages/agents/analysis && npx tsx src/server.ts",
     "dev:reporter": "cd packages/agents/reporter && npx tsx src/server.ts",
     "dev:orchestrator": "cd packages/orchestrator && npx tsx src/server.ts",
-    "build:dashboard": "cd packages/dashboard && npm install && npx vite build",
+    "build:dashboard": "cd packages/dashboard && ../../node_modules/.bin/vite build",
     "build:orchestrator": "npx esbuild packages/orchestrator/src/server.ts --bundle --platform=node --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --outfile=packages/orchestrator/dist/server.js",
     "build:registry": "npx esbuild packages/registry/src/server.ts --bundle --platform=node --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --outfile=packages/registry/dist/server.js",
     "build:oracle": "npx esbuild packages/agents/stellar-oracle/src/server.ts --bundle --platform=node --format=esm --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" --outfile=packages/agents/stellar-oracle/dist/server.js",
