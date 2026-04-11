@@ -99,7 +99,7 @@ function Dashboard() {
   const [stuckDismissed, setStuckDismissed] = useState(false);
   const stuckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const WS_URL = `ws://${window.location.host}/ws`;
+  const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
   const { events, connected, clearEvents } = useWebSocket(WS_URL);
 
   // Vault balance poll

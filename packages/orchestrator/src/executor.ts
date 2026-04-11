@@ -68,12 +68,16 @@ function normaliseDeps(depends_on: number | number[] | null): number[] {
 }
 
 async function checkHealth(agent: AgentRecord): Promise<boolean> {
-  try {
-    const response = await fetch(agent.health_check, { signal: AbortSignal.timeout(5000) });
-    return response.ok;
-  } catch {
-    return false;
+  // Render free tier cold-starts can take 30-50s. Try 3 times with 35s timeout each.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(agent.health_check, { signal: AbortSignal.timeout(35000) });
+      if (response.ok) return true;
+    } catch {
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+    }
   }
+  return false;
 }
 
 // ── PlanExecutor class ───────────────────────────────────────────────────────
