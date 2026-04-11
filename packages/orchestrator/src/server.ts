@@ -106,6 +106,73 @@ async function addUsdcTrustline(signerKeypair: Keypair): Promise<void> {
   }
 }
 
+/**
+ * Request testnet USDC from the Circle testnet faucet.
+ * This is a best-effort call — if the faucet is unavailable we just log and continue.
+ */
+async function requestTestnetUsdc(address: string): Promise<void> {
+  // Circle's testnet USDC faucet
+  const FAUCET_URL = 'https://faucet.circle.com/api/faucet/testnet';
+  try {
+    const res = await fetch(FAUCET_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, blockchain: 'STELLAR', amount: '10' }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.ok) {
+      console.log(`[Orchestrator] Circle faucet: requested 10 testnet USDC for ${address.slice(0, 8)}…`);
+    } else {
+      const text = await res.text().catch(() => '');
+      console.warn(`[Orchestrator] Circle faucet returned ${res.status}: ${text.slice(0, 100)}`);
+    }
+  } catch (err: any) {
+    console.warn(`[Orchestrator] Circle faucet unavailable: ${err.message}`);
+  }
+}
+
+/**
+ * Ensure the shared orchestrator wallet has a USDC trustline and some testnet USDC.
+ * Called once on startup. Non-fatal — logs warnings but doesn't crash.
+ */
+async function setupSharedWallet(walletKeypair: Keypair): Promise<void> {
+  const address = walletKeypair.publicKey();
+  try {
+    // Check if account exists; if not, friendbot it first
+    const accountRes = await fetch(`${HORIZON_URL}/accounts/${address}`, { signal: AbortSignal.timeout(10000) });
+    if (!accountRes.ok) {
+      console.log(`[Orchestrator] Shared wallet not found — running friendbot for ${address.slice(0, 8)}…`);
+      const fb = await fetch(`${HORIZON_URL}/friendbot?addr=${address}`, { signal: AbortSignal.timeout(15000) });
+      if (!fb.ok) throw new Error(`Friendbot failed: ${fb.status}`);
+      console.log(`[Orchestrator] Shared wallet funded via friendbot`);
+      // Small delay for ledger to close
+      await new Promise(r => setTimeout(r, 3000));
+    }
+
+    // Ensure USDC trustline
+    await addUsdcTrustline(walletKeypair);
+    console.log(`[Orchestrator] USDC trustline confirmed for shared wallet`);
+
+    // Check current USDC balance
+    const acctRes2 = await fetch(`${HORIZON_URL}/accounts/${address}`, { signal: AbortSignal.timeout(10000) });
+    const acctData = await acctRes2.json();
+    const balances: any[] = acctData.balances ?? [];
+    const xlm = balances.find((b: any) => b.asset_type === 'native');
+    const usdc = balances.find((b: any) => b.asset_code === 'USDC');
+    const usdcBal = parseFloat(usdc?.balance ?? '0');
+
+    console.log(`[Orchestrator] Shared wallet — XLM: ${xlm?.balance ?? 'N/A'}, USDC: ${usdcBal}`);
+
+    // Request testnet USDC if balance is low
+    if (usdcBal < 1) {
+      console.log(`[Orchestrator] USDC balance low (${usdcBal}) — requesting from Circle testnet faucet…`);
+      await requestTestnetUsdc(address);
+    }
+  } catch (err: any) {
+    console.warn(`[Orchestrator] Shared wallet setup warning: ${err.message}`);
+  }
+}
+
 /** Build an unsigned changeTrust(USDC) XDR for the given user address, to be signed by Freighter. */
 async function buildUsdcTrustlineXdr(userAddress: string): Promise<string> {
   const accountRes = await fetch(`${HORIZON_URL}/accounts/${userAddress}`, { signal: AbortSignal.timeout(10000) });
@@ -345,13 +412,14 @@ app.post('/api/orchestrators', async (req, res) => {
       throw new Error(`Friendbot failed (${fbResp.status}): ${text.slice(0, 200)}`);
     }
 
-    // 2b. Add USDC trust line to orchestrator wallet
+    // 2b. Add USDC trust line and request testnet USDC for the new orchestrator wallet
     try {
       await addUsdcTrustline(orchKeypair);
-      console.log(`[Orchestrator] USDC trust line added for ${orchKeypair.publicKey().slice(0, 8)}…`);
+      console.log(`[Orchestrator] USDC trustline added for ${orchKeypair.publicKey().slice(0, 8)}…`);
+      // Request testnet USDC from Circle faucet so the wallet can pay agents immediately
+      await requestTestnetUsdc(orchKeypair.publicKey());
     } catch (err: any) {
-      console.warn('[Orchestrator] Could not add USDC trust line:', err.message);
-      // Non-fatal — orchestrator still works without USDC trust line
+      console.warn('[Orchestrator] Could not set up USDC for new orchestrator:', err.message);
     }
 
     // 3. Store locally
@@ -1035,19 +1103,6 @@ server.listen(PORT, () => {
   console.log(`[Orchestrator] WebSocket: ws://localhost:${PORT}/ws`);
   console.log(`[Orchestrator] Plan approval timeout: ${APPROVAL_TIMEOUT_MS / 1000}s`);
 
-  // Log wallet balance so Render logs show if orchestrator is unfunded
-  fetch(`${HORIZON_URL}/accounts/${ORCHESTRATOR_ADDRESS}`, { signal: AbortSignal.timeout(10000) })
-    .then(r => r.json())
-    .then((account: any) => {
-      const xlm = account?.balances?.find((b: any) => b.asset_type === 'native');
-      const usdc = account?.balances?.find((b: any) => b.asset_code === 'USDC');
-      console.log(`[Orchestrator] XLM balance:  ${xlm?.balance ?? 'N/A'}`);
-      console.log(`[Orchestrator] USDC balance: ${usdc?.balance ?? 'NO TRUSTLINE — payments will fail'}`);
-      if (!usdc) {
-        console.warn('[Orchestrator] ⚠ No USDC trustline on orchestrator wallet — add one via /api/orchestrators/usdc-trustline or the setup scripts');
-      }
-    })
-    .catch(() => {
-      console.warn(`[Orchestrator] ⚠ Could not fetch wallet balance for ${ORCHESTRATOR_ADDRESS} — account may not exist on testnet (run friendbot)`);
-    });
+  // Ensure the shared orchestrator wallet is funded and has a USDC trustline
+  setupSharedWallet(keypair).catch(() => {});
 });
