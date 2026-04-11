@@ -53,7 +53,7 @@ export async function submitUsdcTrustlineXdr(signedXdr: string): Promise<string>
 }
 
 export async function registerAgent(manifest: any) {
-  const res = await fetch(`http://localhost:4000/register`, {
+  const res = await fetch(`${BASE}/api/agents/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(manifest),
@@ -88,7 +88,7 @@ export async function fetchCancelTaskXdr(userAddress: string, vaultTaskId: numbe
 
 // Rename an agent (display name only) — requester_address must match agent's stellar_address
 export async function renameAgent(agent_id: string, name: string, requester_address: string) {
-  const res = await fetch(`http://localhost:4000/agents/${encodeURIComponent(agent_id)}`, {
+  const res = await fetch(`${BASE}/api/agents/${encodeURIComponent(agent_id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, requester_address }),

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { PlusCircle, Check, AlertCircle, RefreshCw, Wallet, ExternalLink, Copy } from 'lucide-react';
 import { useWallet } from '../contexts/WalletProvider';
 
-const REGISTRY_URL = 'http://localhost:4000';
+const REGISTRY_URL = '/api';
 
 const EMPTY_FORM = {
   agent_id: '',

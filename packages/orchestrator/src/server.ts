@@ -249,6 +249,41 @@ app.delete('/api/agents/:id', async (req, res) => {
   }
 });
 
+// Register a new agent — proxied to registry
+// Accepts both /api/register and /api/agents/register (dashboard uses both)
+async function proxyRegister(req: express.Request, res: express.Response) {
+  try {
+    const resp = await fetch(`${REGISTRY_URL}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = await resp.json().catch(() => ({}));
+    res.status(resp.status).json(data);
+  } catch (err: any) {
+    res.status(502).json({ error: `Failed to reach registry: ${err.message}` });
+  }
+}
+app.post('/api/register', proxyRegister);
+app.post('/api/agents/register', proxyRegister);
+
+// Update agent name/description — proxied to registry with ownership check
+app.patch('/api/agents/:id', async (req, res) => {
+  try {
+    const resp = await fetch(`${REGISTRY_URL}/agents/${encodeURIComponent(req.params.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await resp.json().catch(() => ({}));
+    res.status(resp.status).json(data);
+  } catch (err: any) {
+    res.status(502).json({ error: `Failed to reach registry: ${err.message}` });
+  }
+});
+
 // Provision a new Stellar wallet via the sponsored account service
 app.post('/api/provision-wallet', async (req, res) => {
   try {
