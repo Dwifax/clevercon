@@ -27,8 +27,10 @@ export async function registerSelf(): Promise<void> {
     });
     if (res.ok) {
       console.log(`[WebIntelligenceV2] Registered with registry at ${REGISTRY_URL}`);
+      setTimeout(registerSelf, 4 * 60 * 1000); // re-register every 4 min (Render ephemeral disk)
     } else {
-      console.warn(`[WebIntelligenceV2] Registry responded ${res.status}`);
+      console.warn(`Registry responded ${res.status}, retrying in 10s...`);
+      setTimeout(registerSelf, 10000);
     }
   } catch {
     console.warn('[WebIntelligenceV2] Registry unavailable, retrying in 5s...');

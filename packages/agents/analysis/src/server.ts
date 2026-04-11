@@ -19,19 +19,25 @@ if (!SECRET_KEY) {
 const keypair = Keypair.fromSecret(SECRET_KEY);
 const PAY_TO = keypair.publicKey();
 
-// ── MPP setup ─────────────────────────────────────────────────────
-const mppx = Mppx.create({
-  methods: [
-    stellar({
-      recipient: PAY_TO,
-      currency: USDC_SAC_TESTNET,
-      network: STELLAR_TESTNET,
-      rpcUrl: 'https://soroban-testnet.stellar.org',
-    }),
-  ],
-  secretKey: SECRET_KEY,
-  realm: 'agentforge-analysis',
-});
+// ── MPP setup — lazy so a Soroban RPC hiccup at startup doesn't kill the process
+let _mppx: ReturnType<typeof Mppx.create> | null = null;
+function getMppx() {
+  if (!_mppx) {
+    _mppx = Mppx.create({
+      methods: [
+        stellar({
+          recipient: PAY_TO,
+          currency: USDC_SAC_TESTNET,
+          network: STELLAR_TESTNET,
+          rpcUrl: 'https://soroban-testnet.stellar.org',
+        }),
+      ],
+      secretKey: SECRET_KEY,
+      realm: 'clevercon-analysis',
+    });
+  }
+  return _mppx;
+}
 
 const app = express();
 app.use(cors());
@@ -68,12 +74,12 @@ app.post('/analyze', async (req, res) => {
   });
 
   // Run MPP charge handler
-  const stellarCharge = mppx['stellar/charge'];
+  const stellarCharge = getMppx()['stellar/charge'];
   const result = await stellarCharge({
     amount: '0.005',
     currency: USDC_SAC_TESTNET,
     recipient: PAY_TO,
-    description: 'Data analysis chunk - AgentForge',
+    description: 'Data analysis chunk - CleverCon',
   })(fetchReq);
 
   if (result.status === 402) {
