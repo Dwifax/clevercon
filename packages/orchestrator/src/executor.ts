@@ -189,8 +189,11 @@ export class PlanExecutor extends EventEmitter {
     const deps = normaliseDeps(step.depends_on);
     const contextParts = deps
       .map(id => previousResults.get(id))
-      .filter((r): r is StepResult => r !== null && r !== undefined && r.success === true)
-      .map(r => r.output ?? '');
+      .filter((r): r is StepResult => r !== null && r !== undefined)
+      .map(r => r.success
+        ? (r.output ?? '')
+        : `[Step ${r.step_id} (${r.agent_name}) failed: ${r.error ?? 'unknown error'} — no data available from this step]`
+      );
     const context = contextParts.join('\n\n');
 
     this.emit('step_started', {
