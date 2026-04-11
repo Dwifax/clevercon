@@ -22,6 +22,7 @@ const EVENT_META: Record<string, EventMeta> = {
   plan_approved:           { icon: <CheckCircle size={11} />,  color: 'text-emerald-400', bg: 'bg-emerald-950/60 border-emerald-900/60' },
   plan_rejected:           { icon: <XCircle size={11} />,      color: 'text-red-400',     bg: 'bg-red-950/60 border-red-900/60' },
   plan_auto_approved:      { icon: <CheckCircle size={11} />,  color: 'text-gray-400',    bg: 'bg-gray-800/60 border-gray-700/60' },
+  vault_skipped:           { icon: <Shield size={11} />,       color: 'text-amber-400',   bg: 'bg-amber-950/60 border-amber-900/60' },
   budget_locked:           { icon: <Shield size={11} />,       color: 'text-purple-400',  bg: 'bg-purple-950/60 border-purple-900/60' },
   budget_released:         { icon: <Shield size={11} />,       color: 'text-emerald-400', bg: 'bg-emerald-950/60 border-emerald-900/60' },
   budget_approved:         { icon: <Shield size={11} />,       color: 'text-emerald-400', bg: 'bg-emerald-950/60 border-emerald-900/60' },
@@ -49,6 +50,7 @@ function formatLabel(event: string, orchestratorName: string): string {
     plan_approved: 'Plan Approved',
     plan_rejected: 'Plan Rejected',
     plan_auto_approved: 'Auto-Approved',
+    vault_skipped: 'Vault Bypassed',
     budget_locked: 'Budget Locked',
     budget_released: 'Budget Released',
     budget_approved: 'Budget Approved',
@@ -96,6 +98,8 @@ function formatDetail(event: string, data: any, orchestratorName: string): Parse
       return { text: 'Approved automatically — within budget' };
     case 'plan_rejected':
       return { text: 'Plan was rejected' };
+    case 'vault_skipped':
+      return { text: data.reason ?? 'Vault bypassed — complete on-chain orchestrator registration to enable' };
     case 'budget_locked':
       return { text: `task #${data.contract_task_id} · $${data.budget_usdc?.toFixed(2)} locked on-chain` };
     case 'budget_released':

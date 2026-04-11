@@ -962,9 +962,16 @@ async function runTask(task_id: string, task: string, budget: number, userAddres
   }
 
   // Create vault task — locks plan_cost (sum of step costs) on-chain
+  // Requires orchestrator to be registered on-chain first (register_orchestrator tx signed by user)
+  const orchRecord = userAddress ? orchestratorStore.getByUser(userAddress) : null;
+  const planCost = plan.total_estimated_cost;
   if (VAULT_ACTIVE && orchestratorKeypair) {
-    const planCost = plan.total_estimated_cost;
-    vaultTaskId = await vaultCreateTask(orchestratorKeypair, planCost);
+    if (!orchRecord?.registered_on_chain) {
+      broadcast('vault_skipped', { task_id, reason: 'Orchestrator not registered on-chain — complete on-chain registration in wallet to enable vault' });
+      console.warn(`[Orchestrator] Skipping vault for task ${task_id} — orchestrator not registered on-chain`);
+    } else {
+      vaultTaskId = await vaultCreateTask(orchestratorKeypair, planCost);
+    }
     if (vaultTaskId !== null) {
       broadcast('budget_locked', {
         task_id,
