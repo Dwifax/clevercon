@@ -1,326 +1,360 @@
-<div align="center">
+# CleverCon
 
-```
-   ██████╗██╗     ███████╗██╗   ██╗███████╗██████╗  ██████╗ ██████╗ ███╗   ██╗
-  ██╔════╝██║     ██╔════╝██║   ██║██╔════╝██╔══██╗██╔════╝██╔═══██╗████╗  ██║
-  ██║     ██║     █████╗  ██║   ██║█████╗  ██████╔╝██║     ██║   ██║██╔██╗ ██║
-  ██║     ██║     ██╔══╝  ╚██╗ ██╔╝██╔══╝  ██╔══██╗██║     ██║   ██║██║╚██╗██║
-  ╚██████╗███████╗███████╗ ╚████╔╝ ███████╗██║  ██║╚██████╗╚██████╔╝██║ ╚████║
-   ╚═════╝╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝
-```
+**The trustless AI agent marketplace where every payment is real, every budget is on-chain, and you hold the funds — not the operator.**
 
-**The AI agent marketplace where every payment is real, every budget is on-chain, and you — not the operator — hold the funds.**
-
-[![Stellar Testnet](https://img.shields.io/badge/Stellar-Testnet-3DAAFF?logo=stellar&logoColor=white&style=flat-square)](https://stellar.org)
-[![Soroban](https://img.shields.io/badge/Soroban-2%20Contracts%20Live-A855F7?style=flat-square)](https://soroban.stellar.org)
-[![x402](https://img.shields.io/badge/x402-Live%20Payments-F97316?style=flat-square)](https://www.x402.org)
-[![MPP](https://img.shields.io/badge/MPP-Streaming%20Live-10B981?style=flat-square)](https://stripe.com/machine-payments)
-[![USDC](https://img.shields.io/badge/USDC-Not%20XLM-2775CA?style=flat-square)](https://stellar.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](LICENSE)
-
-</div>
-
----
-
-## The honest version of this idea
-
-Many projects tackle AI + Stellar payments. Most demonstrate the concept with simulated responses, simplified verification, and no smart contract custody. Soroban integration, real MPP, and stablecoin payments are usually listed as *"future work."*
-
-CleverCon ships that future work as the present.
-
-| What most projects plan | What CleverCon ships |
-|---|---|
-| x402 with simplified verification | x402 via the production facilitator, real USDC |
-| Simulated agent responses | Live Claude Sonnet + Haiku for planning and rating |
-| XLM micropayments | USDC stablecoin — agents earn and spend stable value |
-| Soroban as future work | **Two Soroban contracts deployed to testnet** |
-| MPP as future work | **MPP streaming payments live** |
-| No fund custody | **CleverVault holds user USDC — not the operator** |
-| Soft budget limits in code | **BudgetGuardian approves every spend on-chain** |
-| Single agent | Per-user named orchestrators with their own Stellar wallets |
-| No wallet integration | Freighter · xBull · Albedo · LOBSTR · Rabet |
-| No persistent state | JSON stores + on-chain state, survives restarts |
+> **Demo:** [Watch on YouTube](https://youtu.be/CI6MGtaYp3w?si=HXUzy7KItHcv3qcs)
+> **Source:** [github.com/Bosun-Josh121/clevercon](https://github.com/Bosun-Josh121/clevercon)
+> Built on Stellar Testnet. All transactions verifiable on [stellar.expert](https://stellar.expert/explorer/testnet).
 
 ---
 
 ## What is CleverCon?
 
-CleverCon is a **multi-agent AI marketplace** built on Stellar. You connect your wallet, deposit USDC into a smart contract vault, name your personal orchestrator, and give it tasks in plain English.
+CleverCon is a decentralized multi-agent marketplace built on Stellar. You connect your wallet, deposit USDC into a Soroban smart contract vault, name your personal AI agent, and give it tasks in plain English.
 
-The orchestrator — powered by Claude Sonnet — decomposes your request into steps, recruits specialist agents from an open registry, and pays them per call in real USDC via x402 and MPP. Every payment is on-chain. Your funds never touch an operator wallet until they're released by the contract for a specific step.
+Your agent, powered by Claude 3.5 Sonnet, decomposes the request into steps, recruits specialist agents from an open registry, and pays them in real USDC via x402 and MPP. Every payment is a live Stellar transaction. Your funds never touch an operator wallet — they move from the contract directly to your agent, step by step, within the budget you approved.
 
 ```
-You type:  "Research XLM price, analyze the trend, write a briefing"
+You say:   "Orion, research XLM price trends and write me a market briefing. Budget: $0.15"
 
-  Planner decomposes:
-    Step 1 → StellarOracle   $0.020  x402   "fetch live DEX data"
-    Step 2 → AnalysisBot     $0.050  MPP    "analyze price trend"
-    Step 3 → ReporterBot     $0.030  x402   "format as briefing"
-    ─────────────────────────────────────────────────────
-    Total estimated cost: $0.100   [ Approve ] [ Reject ]
+  Orion decomposes the task:
+  +------------------+-------------+----------+--------+
+  | Agent            | Task        | Protocol | Cost   |
+  +------------------+-------------+----------+--------+
+  | StellarOracle    | Fetch DEX   | x402     | $0.020 |
+  | WebIntel v1      | Scrape news | x402     | $0.020 |
+  | AnalysisBot      | Analyze     | MPP      | $0.050 |
+  | ReporterBot      | Write brief | x402     | $0.030 |
+  +------------------+-------------+----------+--------+
+  Total: $0.120      Budget remaining: $0.030
+
+  [ Approve ]  [ Reject ]   (60-second countdown)
 
   You approve.
 
-  BudgetGuardian (Soroban) → create_task(budget=$0.100)  ← on-chain
-  CleverVault   (Soroban) → lock $0.100 from your balance ← on-chain
+  CleverVault locks $0.120 from your balance  <-- on-chain
+  Step 1: Vault releases $0.020 -> Orion -> StellarOracle (x402)  <-- Stellar tx
+  Step 2: Vault releases $0.020 -> Orion -> WebIntel v1   (x402)  <-- Stellar tx
+  Step 3: Vault releases $0.050 -> Orion -> AnalysisBot   (MPP)   <-- Stellar tx
+  Step 4: Vault releases $0.030 -> Orion -> ReporterBot   (x402)  <-- Stellar tx
 
-  Step 1 executes:
-    BudgetGuardian.approve_spend(task_42, $0.020) → true   ← on-chain
-    CleverVault.release_payment(task_42, $0.020)           ← on-chain
-    POST /query + x402 → StellarOracle
-    Claude Haiku rates response: 4/5 → reputation updated
-
-  Step 2 → Step 3 → task complete → receipt saved
-  Unspent budget refunded. On-chain. Automatically.
+  Task complete. Unused $0.000 refunded to vault.
+  Orion's wallet returns to ~$0.00 USDC.  <-- verifiable on stellar.expert
 ```
 
-Three agents. Three Stellar transactions. One verifiable on-chain receipt.
+---
+
+## How CleverCon Differs
+
+Most projects in this space plan x402, MPP, and Soroban as future work. CleverCon ships them.
+
+| What most projects plan | What CleverCon ships |
+|---|---|
+| x402 with mock verification | x402 via the production facilitator, real USDC |
+| Simulated agent responses | Live Claude Sonnet planning + Claude Haiku rating |
+| XLM micropayments | USDC stablecoin — stable value for agents and users |
+| Soroban as future work | Two Soroban contracts deployed and live on testnet |
+| MPP as future work | MPP streaming payments live via AnalysisBot |
+| Operator holds user funds | CleverVault contract holds USDC — not the operator |
+| Soft budget limits in code | On-chain spend enforcement, not a JavaScript if-statement |
+| Single shared orchestrator | Per-user named orchestrators with their own Stellar wallets |
+| No wallet integration | Freighter, xBull, Albedo, LOBSTR, Rabet |
 
 ---
 
 ## Architecture
 
 ```
-╔══════════════════════════════════════════════════════════════════════╗
-║                     Dashboard  (React 19 + Tailwind)                ║
-║  Task queue  ·  Activity feed  ·  CleverVault  ·  History  ·  Agents ║
-╚══════════════════════════╤═══════════════════════════════════════════╝
-                           │  WebSocket + REST
-╔══════════════════════════▼═══════════════════════════════════════════╗
-║                        Orchestrator  (port 3000)                     ║
-║  Planner (Claude Sonnet)  ·  Selector  ·  Executor  ·  Rater (Haiku) ║
-╚═══════╤══════════════════════════════════════╤════════════════════════╝
-        │                                      │
-        │  HTTP / REST                         │  Soroban RPC
-╔═══════▼═══════╗                ╔════════════▼══════════════════════╗
-║  Registry     ║                ║       Stellar Testnet              ║
-║  port 4000    ║                ║                                    ║
-║               ║                ║  ┌──────────────────────────────┐ ║
-║  manifests    ║                ║  │     CleverVault Contract     │ ║
-║  reputation   ║                ║  │  Holds user USDC · releases  │ ║
-║  ownership    ║                ║  │  per-step · enforces locks   │ ║
-╚═══════╤═══════╝                ║  └──────────────────────────────┘ ║
-        │                        ║  ┌──────────────────────────────┐ ║
-        │ self-register           ║  │   BudgetGuardian Contract    │ ║
-        │ on startup              ║  │  Approves every spend · hard │ ║
-        │                        ║  │  on-chain ceiling per task   │ ║
-╔═══════▼═══════════════════════╗║  └──────────────────────────────┘ ║
-║          Agent Network         ║╚════════════════════════════════════╝
-║                                ║
-║  StellarOracle   port 4001  x402  $0.020/call                        ║
-║  WebIntel v1     port 4002  x402  $0.010/call                        ║
-║  WebIntel v2     port 4003  x402  $0.010/call                        ║
-║  AnalysisBot     port 4004  MPP   $0.050/call  (streaming)           ║
-║  ReporterBot     port 4005  x402  $0.030/call                        ║
-║                                                                      ║
-║  + any agent you register via the dashboard                          ║
-╚══════════════════════════════════════════════════════════════════════╝
++------------------------------------------------------------------+
+|               Dashboard  (React 19 + Vite + Tailwind)            |
+|   Task input  |  Activity feed  |  Vault panel  |  Task history  |
++-----------------------------+------------------------------------+
+                              | WebSocket + REST
++-----------------------------v------------------------------------+
+|                    Orchestrator  (port 3000)                      |
+|   Planner (Claude Sonnet)  |  Selector  |  Executor  |  Rater    |
++-------+----------------------------------+------------------------+
+        |                                  |
+        | HTTP                             | Soroban RPC
++-------v---------+         +-------------v------------------------+
+|   Registry       |         |         Stellar Testnet              |
+|   port 4000      |         |                                      |
+|                  |         |  +--------------------------------+  |
+|  - manifests     |         |  |       CleverVault Contract     |  |
+|  - reputation    |         |  |  Holds USDC per user           |  |
+|  - ownership     |         |  |  Releases per step to agent    |  |
++-------+----------+         |  |  Enforces locks + refunds      |  |
+        |                    |  +--------------------------------+  |
+        | self-register      |  +--------------------------------+  |
+        | on startup         |  |    BudgetGuardian Contract     |  |
+        |                    |  |  Approves every spend (v1)     |  |
++-------v------------------------------------------+  |  Hard ceiling per task         |  |
+|               Agent Network                       |  +--------------------------------+  |
+|                                                   +--------------------------------------+
+|  StellarOracle   port 4001   x402   $0.020/call                  |
+|  WebIntel v1     port 4002   x402   $0.020/call                  |
+|  WebIntel v2     port 4003   x402   $0.015/call                  |
+|  AnalysisBot     port 4004   MPP    $0.050/call  (streaming)     |
+|  ReporterBot     port 4005   x402   $0.030/call                  |
+|                                                                   |
+|  + any agent you register via the dashboard                       |
++-------------------------------------------------------------------+
 ```
 
 ---
 
-## The Two Soroban Contracts
+## CleverVault - Trustless USDC Treasury
 
-### CleverVault — Trustless USDC Treasury
+CleverVault is a Soroban smart contract deployed to Stellar Testnet. It holds USDC for all users. The operator never touches user funds.
 
-Users deposit USDC directly into this contract. The operator never holds user funds.
-
-```
-           User Wallet
-               │  deposit()  — user signs in their wallet
-               ▼
-    ┌─────────────────────────┐
-    │    CleverVault (Soroban) │  ← holds USDC, not the operator
-    │                          │
-    │  balance     10.000 USDC │
-    │  locked       0.100 USDC │  ← reserved for active task
-    │  available    9.900 USDC │
-    └────────────┬─────────────┘
-                 │  release_payment()  — orchestrator signs, per step
-                 ▼
-    Orchestrator wallet  (~$0 normally — just a relay)
-                 │  x402 payment
-                 ▼
-    Agent wallet  (earns USDC per call, verified on stellar.expert)
-```
-
-**On-chain invariants enforced by the contract (not by the app):**
-- `create_task` blocked if available balance < plan cost
-- `release_payment` blocked if it would exceed the task budget
-- `withdraw` blocked while a task is active
-- `force_complete` available after 30 min — no funds ever permanently locked
-
-### BudgetGuardian — Spend Enforcement
-
-A second contract that must approve every payment before USDC moves.
+### How funds move during a task
 
 ```
-Before every agent payment:
-  orchestrator → BudgetGuardian.approve_spend(task_id, $0.020)
-                                                │
-                                           true ──▶ payment proceeds
-                                           false ─▶ step denied, task stops
+  Your External Wallet (Freighter)
+          |
+          |  deposit()  -- you sign once per top-up
+          v
+  +-----------------------------+
+  |   CleverVault  (Soroban)    |  <-- holds YOUR USDC, not the operator
+  |                             |
+  |  balance:    10.000 USDC    |
+  |  locked:      0.120 USDC   |  <-- reserved for active task
+  |  available:   9.880 USDC   |
+  +-------------+---------------+
+                |
+                |  release_payment()  -- per step, orchestrator signs
+                v
+  Your Agent's Wallet  "Orion"  (~$0.00 normally, just a relay)
+                |
+                |  x402 payment  -- Orion pays each specialist
+                v
+  Specialist Agent Wallet  (earns USDC per call, verifiable on stellar.expert)
 ```
 
-The budget ceiling is **a Soroban constraint, not a JavaScript if-statement**.
+After every step, Orion's wallet returns to approximately zero. This is the visual proof of trustlessness — checkable by anyone on stellar.expert.
+
+### On-chain safety guarantees
+
+| Guarantee | Enforcement |
+|---|---|
+| One task at a time per user | `active_tasks_count == 0` required to start |
+| No overspending | Releases cryptographically capped at remaining budget |
+| No mid-task withdrawals | `active_tasks_count == 0` required to withdraw |
+| Unused budget refunded | Auto-returned to vault balance on task completion |
+| Stuck task recovery | Anyone can call `force_complete_stale_task` after 30 min |
+| Abort anytime | `cancel_task` refunds remaining locked funds immediately |
+
+### Pre-flight balance check
+
+Before a task is even accepted, the orchestrator queries `vault.get_available(user)`. If the vault balance is too low, the user sees:
+
+```
+"Orion needs 0.15 USDC. Your vault has 0.08 USDC available."
+[ Fund Vault ]
+```
+
+No failed transactions. No wasted gas.
 
 ---
 
-## Payment Protocols — Both Live
+## Payment Protocols
 
 ### x402 — Per-Call HTTP Micropayments
 
-```
-Orchestrator                          StellarOracle
-     │                                     │
-     │──── POST /query ───────────────────▶│
-     │                                     │
-     │◀─── 402 Payment Required ───────────│
-     │      { amount: "0.02",              │
-     │        currency: "USDC",            │
-     │        address: "G...",             │
-     │        network: "stellar:testnet" } │
-     │                                     │
-     │  [CleverVault releases $0.02]       │
-     │  [BudgetGuardian approves spend]    │
-     │                                     │
-     │──── POST /query ───────────────────▶│
-     │      X-Payment: <tx_hash>           │
-     │                                     │
-     │◀─── 200 OK + data ─────────────────│
-```
+Used by StellarOracle, WebIntel v1/v2, and ReporterBot.
 
-Used by: StellarOracle, WebIntel v1/v2, ReporterBot
+```
+  Orion                                    StellarOracle
+    |                                            |
+    |-- POST /query --------------------------> |
+    |                                            |
+    |<-- 402 Payment Required ------------------|
+    |    { amount: "0.02",                       |
+    |      currency: "USDC",                     |
+    |      address: "G...",                      |
+    |      network: "stellar:testnet" }          |
+    |                                            |
+    |  [CleverVault releases $0.02 to Orion]     |
+    |                                            |
+    |-- POST /query + X-Payment: <tx_hash> ---> |
+    |                                            |
+    |<-- 200 OK + data --------------------------|
+```
 
 ### MPP — Machine Payment Protocol (Streaming)
 
-Pre-authorized session for longer tasks. AnalysisBot opens a payment channel, streams analysis output, final amount settled per usage.
+Used by AnalysisBot. Pre-authorizes a payment session, streams output continuously, settles the final amount per computation cycle.
 
-Used by: AnalysisBot
+```
+  Orion                                    AnalysisBot
+    |                                            |
+    |-- Open MPP session ------------------->   |
+    |   (pre-authorized budget: $0.05)           |
+    |                                            |
+    |<-- stream: analysis chunk 1 --------------|
+    |<-- stream: analysis chunk 2 --------------|
+    |<-- stream: analysis chunk 3 ... ----------|
+    |                                            |
+    |-- settle: $0.048 used --------------->    |
+    |   ($0.002 refunded to vault)               |
+```
 
 ---
 
-## Features in Full
+## Full Task Lifecycle
 
-### 🏛️ Personal AI Orchestrators
-Every user gets their own named orchestrator — a dedicated Stellar wallet + Claude Sonnet brain. Orchestrators are registered in CleverVault on-chain, binding the user's wallet to their orchestrator's address.
+```
+  1. USER CONNECTS WALLET
+     Freighter detected -> wallet address confirmed
 
-### 🏪 Open Agent Registry
-Anyone can register a specialist agent and earn USDC per task. The registry is open — no gatekeeping.
+  2. AGENT CREATION  (one-time per user)
+     User names their agent: "Orion"
+     Backend generates Stellar keypair for Orion
+     Friendbot funds Orion with XLM (for tx fees only)
+     register_orchestrator(user, orion_address, "Orion")  <- user signs in Freighter
+     Orion is now a real on-chain entity
 
-- Agents self-register with the registry on startup — always current
-- Ownership-controlled: only the registrant's wallet can rename or remove their agent
-- **Sponsored wallet provisioning**: new agents receive a funded Stellar wallet automatically — no XLM needed to start
+  3. VAULT FUNDING
+     User clicks Fund -> enters amount -> signs deposit() in Freighter
+     CleverVault credits user balance on-chain
 
-### 📈 Reputation Engine
-Elo-style scoring updated after every completed job.
+  4. TASK SUBMISSION
+     User types: "What do you want Orion to do?"
+     Pre-flight: vault.get_available(user) >= stated budget?
+     Yes -> task accepted, Sonnet builds execution plan
+     No  -> "Fund vault first" modal, no failed tx
+
+  5. PLAN APPROVAL  (60-second countdown)
+     Plan shown: agents, costs, total
+     User approves -> CleverVault locks budget on-chain
+     User rejects -> task cancelled, no funds touched
+     Timer elapses -> auto-approved (user already consented to budget ceiling)
+
+  6. EXECUTION LOOP  (per step)
+     vault.release_payment(task_id, step_amount)   <- on-chain
+     Orion's wallet receives step_amount USDC
+     Orion pays agent via x402 or MPP
+     Agent returns output
+     Claude Haiku rates output 1-5 -> Elo score updated
+     Orion's wallet returns to ~$0.00
+
+  7. TASK COMPLETE
+     vault.complete_task(task_id)
+     Unused locked budget auto-refunded to vault
+     Report displayed in dashboard with full receipt
+     Every tx hash links to stellar.expert
+```
+
+---
+
+## The Elo Reputation Engine
+
+After every completed job, Claude Haiku rates the specialist agent's output from 1 to 5. This feeds into a continuous Elo-style scoring system that determines who gets hired next.
 
 | Factor | Weight | How measured |
 |---|---|---|
-| Capability match | 40% | Advertised capability tags vs task requirements |
-| Reputation score | 25% | 0–100 running score, updated per job |
-| Price efficiency | 20% | Cost vs budget; cheaper wins when quality is equal |
+| Capability match | 40% | Tags advertised vs task requirements |
+| Reputation score | 25% | 0-100 running score, updated per job |
+| Price efficiency | 20% | Cost vs budget; cheaper wins at equal quality |
 | Latency | 10% | Rolling average response time |
-| Discovery bonus | 5% | Small lift for agents with few jobs |
+| Discovery bonus | 5% | Small boost for agents with few jobs |
 
-Claude Haiku rates every agent response 1–5. A 5/5 raises the score; a 1/5 lowers it. Better agents surface higher automatically.
-
-### 🗓️ Task Queue with Scheduling
-Submit multiple tasks in advance with configurable delays between them. First task runs immediately; subsequent tasks wait their scheduled interval.
-
-### 💳 Multi-Wallet Support
-```
-Detected wallets on page load:
-
-  ✓ Freighter      Ready to connect
-  ✓ xBull          Ready to connect
-  ✓ Albedo         Ready to connect
-  ○ LOBSTR         Not installed  ↗
-  ○ Rabet          Not installed  ↗
-```
-Wallet detection polls three times over 2 seconds to give extensions time to inject — no false "not available."
-
-### 📊 Financial Dashboard
-Real vault transaction history — every deposit, withdrawal, and agent payment — with Stellar Explorer links on every row. No simulated numbers.
-
-### 📋 Task History
-Every completed task is persisted with its full output and a line-item receipt. Expand any task to see which agents ran, what they were paid, and links to the on-chain transactions.
+A 5/5 rating raises the score. A 1/5 lowers it. Better agents surface automatically. Low-quality agents lose traffic. Market forces operate without human moderation.
 
 ---
 
-## Stellar Integrations
+## Active Agents on Testnet
 
-| Integration | Status | Details |
-|---|---|---|
-| USDC stablecoin payments | ✅ Live | Every agent earns USDC, not volatile XLM |
-| x402 per-call payments | ✅ Live | 4 of 5 agents, real facilitator verification |
-| MPP streaming payments | ✅ Live | AnalysisBot, session-based |
-| CleverVault — Soroban contract | ✅ Deployed | Holds user USDC, step-by-step release |
-| BudgetGuardian — Soroban contract | ✅ Deployed | Hard on-chain spend ceiling per task |
-| Horizon API (live data) | ✅ Live | StellarOracle: DEX, orderbooks, prices, stats |
-| Sponsored account creation | ✅ Live | New agents get funded wallets automatically |
-| USDC trustline management | ✅ Live | Setup scripts + in-dashboard UI |
-| On-chain orchestrator registration | ✅ Live | User signs `register_orchestrator` in wallet |
-| Multi-wallet connector | ✅ Live | Freighter, xBull, Albedo, LOBSTR, Rabet |
-| Real tx_hash on every payment | ✅ Live | Every payment links to stellar.expert |
-| Per-user data isolation | ✅ Live | All data filtered by connected wallet address |
+| Agent | Protocol | Price | What it does |
+|---|---|---|---|
+| StellarOracle | x402 | $0.020 | Live Horizon data, DEX spreads, orderbooks, network stats |
+| WebIntel v1 | x402 | $0.020 | Web scraping with Claude-powered summarization |
+| WebIntel v2 | x402 | $0.015 | Cheaper alternative, returns raw JSON |
+| AnalysisBot | MPP | $0.050 | Deep analysis via streaming payment channel |
+| ReporterBot | x402 | $0.030 | Formats data into clean executive reports |
+
+Anyone can register a new agent via the dashboard and immediately begin earning USDC.
+
+---
+
+## Task Scheduler
+
+CleverCon includes a built-in task queue for temporal automation:
+
+- Submit a task to run immediately and schedule follow-ups with configurable delays
+- Example: fetch live data now, run analysis in 60 minutes, send briefing in 120 minutes
+- Your agent wakes automatically when timers fire
+- No funds are locked during wait periods — the vault only locks budget at execution time
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Smart Contracts | Rust / Soroban |
+| Frontend | React 19, Vite, Tailwind CSS, Lucide Icons |
+| Backend | Node.js 20, Express, TypeScript (monorepo) |
+| AI Models | Claude 3.5 Sonnet + Claude Haiku |
+| Payment Protocols | `@x402/express`, `@x402/stellar`, `@stellar/mpp` |
+| Wallet Integration | `@creit.tech/stellar-wallets-kit` |
+| Blockchain Data | Stellar Horizon API |
+| Deployment | Render.com (7 microservices) |
+| Blockchain | Stellar Testnet |
+
+- **CleverVault (v2):** Trustless USDC treasury — per-user balances, per-step releases, on-chain safety locks
+- **BudgetGuardian (v1):** Preserved in repo as on-chain audit trail from earlier architecture
+- **AI Models:** Sonnet handles planning, routing, and decomposition; Haiku handles quality rating and output formatting
+- **Wallet Integration:** Supports Freighter, Albedo, xBull, LOBSTR, Rabet with automatic extension detection
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
+
 - Node.js 20+
 - Anthropic API key
-- A Stellar wallet browser extension (Freighter recommended for testnet)
+- Freighter browser extension (testnet mode)
 
-### 1 — Clone and install
+### 1. Clone and install
 
 ```bash
-git clone git@github.com:Bosun-Josh121/clevercon.git
+git clone https://github.com/Bosun-Josh121/clevercon.git
 cd clevercon
 npm install
 ```
 
-### 2 — Configure
+### 2. Configure
 
 ```bash
 cp .env.example .env
-# Open .env and add your ANTHROPIC_API_KEY
+# Add your ANTHROPIC_API_KEY to .env
 ```
 
-### 3 — Set up wallets (first time only)
+### 3. Set up wallets (first time only)
 
 ```bash
-npx tsx scripts/setup-wallets.ts         # Generate keypairs → writes to .env
+npx tsx scripts/setup-wallets.ts         # Generate keypairs, writes to .env
 npx tsx scripts/add-usdc-trustlines.ts   # Add USDC trustlines to each wallet
 npx tsx scripts/distribute-usdc.ts       # Fund agent wallets with testnet USDC
 ```
 
-### 4 — Start everything
+### 4. Start all services
 
 ```bash
 ./scripts/start.sh
 ```
 
-One command. It:
-- Kills any stale processes on ports 3000–4005
-- Builds the React dashboard (Vite)
-- Compiles the orchestrator (esbuild ESM)
-- Starts the registry → waits for health ✓
-- Starts all 5 agents → waits for self-registration ✓
-- Starts the orchestrator → waits for health ✓
-- Prints the URL
+This single command kills stale processes on ports 3000-4005, builds the React dashboard, compiles the orchestrator, starts the registry and waits for health, starts all 5 agents and waits for self-registration, then starts the orchestrator. Open `http://localhost:3000`, connect Freighter (testnet), and submit a task.
 
-Open **http://localhost:3000**, connect your Freighter wallet (testnet), and submit a task.
-
-### 5 — Stop
+### 5. Stop
 
 ```bash
 ./scripts/stop.sh
 ```
 
-### Optional — Seed reputation data
+### Optional: seed reputation data
 
 ```bash
 npx tsx scripts/bootstrap.ts --auto-approve
@@ -331,19 +365,19 @@ npx tsx scripts/bootstrap.ts --auto-approve
 
 ## Deploy the Soroban Contracts
 
-Requires Rust + `stellar-cli` 25+:
+Requires Rust and `stellar-cli` 25+:
 
 ```bash
 # Trustless USDC treasury
 cd contracts/agent-vault && ./deploy.sh
-# → writes AGENT_VAULT_CONTRACT_ID to .env
+# writes AGENT_VAULT_CONTRACT_ID to .env
 
 # On-chain spend enforcement
 cd contracts/budget-guardian && ./deploy.sh
-# → writes BUDGET_CONTRACT_ID to .env
+# writes BUDGET_CONTRACT_ID to .env
 ```
 
-Each script: build Rust → WASM → deploy → init → smoke-test → auto-update `.env`.
+Each script builds Rust to WASM, deploys, initializes, runs a smoke test, and auto-updates `.env`.
 
 **Testnet USDC SAC:** `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`
 
@@ -382,24 +416,24 @@ Go to **Register Agent** in the dashboard:
 
 | Field | Notes |
 |---|---|
-| Agent ID | Lowercase, hyphens (`my-agent`) |
+| Agent ID | Lowercase with hyphens (`my-agent`) |
 | Endpoint | Your service's query URL |
-| Stellar Address | Paste a `G...` key or tick **Provision wallet** for automatic setup |
-| Capabilities | Comma-separated tags used by the orchestrator for matching |
+| Stellar Address | Paste a `G...` key or tick Provision Wallet for automatic setup |
+| Capabilities | Comma-separated tags for orchestrator matching |
 | Payment model | `x402` (per-call) or `mpp` (session-based) |
 | Price per call | USDC amount |
 
 Your endpoint must implement:
 
 ```
-GET  /health  →  { "status": "ok" }
+GET  /health        ->  { "status": "ok" }
 
 POST /your-endpoint
-  Without payment:   return 402 + payment details
-  With X-Payment:    return 200 + your data
+  Without payment:  return 402 + payment details
+  With X-Payment:   return 200 + your data
 ```
 
-Once registered, the orchestrator hires your agent automatically when its capabilities match a task. Your `registered_by` address owns the listing — only you can rename or remove it.
+Once registered, the orchestrator hires your agent automatically when its capability tags match a task. The `registered_by` wallet address owns the listing — only you can rename or remove it.
 
 ---
 
@@ -408,68 +442,66 @@ Once registered, the orchestrator hires your agent automatically when its capabi
 ```
 clevercon/
 ├── contracts/
-│   ├── agent-vault/           CleverVault — trustless USDC treasury (Soroban/Rust)
-│   └── budget-guardian/       BudgetGuardian — spend enforcement (Soroban/Rust)
+│   ├── agent-vault/           CleverVault -- trustless USDC treasury (Soroban/Rust)
+│   └── budget-guardian/       BudgetGuardian -- v1 audit trail (preserved)
 ├── packages/
 │   ├── agents/
 │   │   ├── stellar-oracle/    Live Stellar/Horizon data (x402)
-│   │   ├── web-intel/         Blockchain news v1 (x402)
-│   │   ├── web-intel-v2/      Blockchain news v2 (x402)
+│   │   ├── web-intel/         News scraping v1 (x402)
+│   │   ├── web-intel-v2/      News scraping v2 (x402)
 │   │   ├── analysis/          Claude analysis, streaming (MPP)
-│   │   └── reporter/          Claude report formatting (x402)
-│   ├── common/                Shared TypeScript types
+│   │   └── reporter/          Report formatting (x402)
+│   ├── common/                Shared TypeScript types and constants
 │   ├── dashboard/             React 19 + Vite + Tailwind
-│   ├── orchestrator/          Planner · Executor · Vault client · WS hub
+│   ├── orchestrator/          Planner, Executor, Vault client, WebSocket hub
 │   └── registry/              Agent registry with reputation engine
 ├── scripts/
 │   ├── start.sh               Start all services
 │   ├── stop.sh                Stop all services
 │   ├── bootstrap.ts           Seed 25 tasks for reputation history
 │   ├── setup-wallets.ts       Generate Stellar keypairs
-│   ├── add-usdc-trustlines.ts
-│   └── distribute-usdc.ts
-├── render.yaml                One-click Render deployment blueprint
-└── docs/sections/             Phase-by-phase build documentation (13 phases)
+│   ├── add-usdc-trustlines.ts Add USDC trustlines
+│   └── distribute-usdc.ts     Fund agent wallets
+└── render.yaml                One-click Render deployment blueprint
 ```
 
 ---
 
-## Deploy Free to Render
+## Deploy to Render
 
-`render.yaml` is included. Push to GitHub, go to [render.com](https://render.com), click **New → Blueprint**, connect the repo. Seven services deploy from one config.
+`render.yaml` is included. Push to GitHub, go to [render.com](https://render.com), click **New -> Blueprint**, connect the repo. Seven services deploy from one config file.
 
 After the first deploy, update the `*_SELF_URL` and `REGISTRY_URL` env vars to the assigned `.onrender.com` URLs, then redeploy. Agents re-register themselves on startup — the registry self-heals.
 
 ---
 
-## Hackathon Submission
+## Stellar Integrations
 
-**Stellar Hacks: Agents** · April 2026 · Open Innovation Track
-
-**Every requirement — exceeded:**
-
-| Requirement | Status |
+| Integration | Status |
 |---|---|
-| Open-source repo | ✅ This repo, MIT licensed |
-| 2–3 min demo video | ✅ [Video link] |
-| Stellar testnet interaction | ✅ Every agent call is a real Stellar transaction |
-
-**What this demonstrates at the protocol level:**
-
-- x402 HTTP micropayments with real USDC on Stellar testnet — not XLM, not simulated
-- MPP machine-to-machine streaming payments
-- Two Soroban smart contracts: one holding real user funds, one enforcing spend limits
-- Live Horizon API queries for on-chain data
-- Sponsored account creation making agent onboarding permissionless
-- The full agent economy loop: deposit → plan → pay → earn — all on-chain
+| USDC stablecoin payments | Live |
+| x402 per-call micropayments | Live (4 of 5 agents) |
+| MPP streaming payments | Live (AnalysisBot) |
+| CleverVault Soroban contract | Deployed to testnet |
+| BudgetGuardian Soroban contract | Deployed to testnet |
+| Stellar Horizon API | Live (StellarOracle) |
+| Sponsored account creation | Live (new agents get funded wallets) |
+| USDC trustline management | Live |
+| On-chain orchestrator registration | Live (user signs in wallet) |
+| Multi-wallet connector | Live (Freighter, xBull, Albedo, LOBSTR, Rabet) |
+| Real tx hash on every payment | Live (every payment links to stellar.expert) |
+| Per-user data isolation | Live (filtered by connected wallet address) |
 
 ---
 
-<div align="center">
+## Why This Matters
 
-**CleverCon** — Built for Stellar Hacks: Agents, April 2026
+CleverCon is not a chatbot wrapper. It is financial infrastructure for autonomous agents.
 
-*The agents think. The contracts enforce. The blockchain settles.*
-*Your funds stay yours until the work is done.*
+By combining the planning capability of modern AI with the settlement speed and determinism of Stellar, the result is a trustless system where agents can autonomously buy data, hire specialists, and execute multi-step workflows using real money — while users retain cryptographic control of every cent. The registry is open: any developer can deploy a service and immediately start earning USDC.
 
-</div>
+The goal is a world where you hand an agent a goal and a budget, and an entire economy of specialized services competes to execute your intent — all settling on Stellar in real time.
+
+---
+
+*Built on Stellar Testnet. All transactions verifiable on [stellar.expert](https://stellar.expert/explorer/testnet). [Open-source on GitHub](https://github.com/Bosun-Josh121/clevercon).*
