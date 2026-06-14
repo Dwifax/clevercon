@@ -11,7 +11,7 @@ import { registerSelf } from './register.js';
 const PORT = parseInt(process.env.WEB_INTEL_V2_PORT || process.env.PORT || '4003');
 const SECRET_KEY = process.env.WEB_INTEL_V2_SECRET_KEY!;
 const FACILITATOR_URL = process.env.X402_FACILITATOR_URL || 'https://www.x402.org/facilitator';
-const NETWORK = process.env.STELLAR_NETWORK || 'stellar:testnet';
+const NETWORK = (process.env.STELLAR_NETWORK || 'stellar:testnet') as `${string}:${string}`;
 
 if (!SECRET_KEY) {
   console.error('[WebIntelligenceV2] WEB_INTEL_V2_SECRET_KEY not set');
@@ -23,8 +23,10 @@ const PAY_TO = keypair.publicKey();
 
 // ── x402 setup ────────────────────────────────────────────────────
 const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
-const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register(NETWORK, new ExactStellarScheme());
+const resourceServer = new x402ResourceServer(facilitatorClient).register(
+  NETWORK,
+  new ExactStellarScheme(),
+);
 
 const app = express();
 app.use(cors());
@@ -55,8 +57,10 @@ app.use(
       },
     },
     resourceServer,
-    undefined, undefined, true,
-  )
+    undefined,
+    undefined,
+    true,
+  ),
 );
 
 // ── Paid endpoint — simpler than v1, no Claude post-processing ────

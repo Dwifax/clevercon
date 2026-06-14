@@ -7,7 +7,7 @@ import { createEd25519Signer } from '@x402/stellar';
 import { ExactStellarScheme } from '@x402/stellar/exact/client';
 
 const SECRET_KEY = process.env.WEB_INTEL_V2_SECRET_KEY!;
-const NETWORK = process.env.STELLAR_NETWORK || 'stellar:testnet';
+const NETWORK = (process.env.STELLAR_NETWORK || 'stellar:testnet') as `${string}:${string}`;
 const XLM402_BASE = process.env.XLM402_BASE_URL || 'https://xlm402.com';
 
 export async function getBlockchainNews(): Promise<{ data: any; paid: boolean }> {
@@ -30,7 +30,7 @@ export async function getBlockchainNews(): Promise<{ data: any; paid: boolean }>
     } catch (err: any) {
       lastError = err;
       if (attempt < MAX_ATTEMPTS) {
-        await new Promise(r => setTimeout(r, 2000 * attempt));
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
       }
     }
   }

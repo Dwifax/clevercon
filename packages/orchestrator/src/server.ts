@@ -39,7 +39,12 @@ import { createPlan } from './planner.js';
 import { validatePlan } from './validator.js';
 import { PlanExecutor } from './executor.js';
 import { scoreAgents } from './selector.js';
-import { createTask as vaultCreateTask, completeTask as vaultCompleteTask, getAvailable, VAULT_ACTIVE } from './agent-vault-client.js';
+import {
+  createTask as vaultCreateTask,
+  completeTask as vaultCompleteTask,
+  getAvailable,
+  VAULT_ACTIVE,
+} from './agent-vault-client.js';
 import * as orchestratorStore from './orchestrator-store.js';
 import * as activityStore from './activity-store.js';
 import { appendVaultTx, getVaultLedger } from './vault-ledger.js';
@@ -71,14 +76,16 @@ const USDC_ASSET = new Asset('USDC', USDC_ISSUER);
 /** Submit a changeTrust(USDC) transaction signed by the given keypair. */
 async function addUsdcTrustline(signerKeypair: Keypair): Promise<void> {
   const address = signerKeypair.publicKey();
-  const accountRes = await fetch(`${HORIZON_URL}/accounts/${address}`, { signal: AbortSignal.timeout(10000) });
+  const accountRes = await fetch(`${HORIZON_URL}/accounts/${address}`, {
+    signal: AbortSignal.timeout(10000),
+  });
   if (!accountRes.ok) throw new Error(`Account not found: ${address}`);
   const accountData = await accountRes.json();
 
   // Check if trust line already exists
   const balances: any[] = accountData.balances ?? [];
   const hasTrustline = balances.some(
-    (b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER
+    (b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER,
   );
   if (hasTrustline) return; // Already set up
 
@@ -121,7 +128,9 @@ async function requestTestnetUsdc(address: string): Promise<void> {
       signal: AbortSignal.timeout(15000),
     });
     if (res.ok) {
-      console.log(`[Orchestrator] Circle faucet: requested 10 testnet USDC for ${address.slice(0, 8)}…`);
+      console.log(
+        `[Orchestrator] Circle faucet: requested 10 testnet USDC for ${address.slice(0, 8)}…`,
+      );
     } else {
       const text = await res.text().catch(() => '');
       console.warn(`[Orchestrator] Circle faucet returned ${res.status}: ${text.slice(0, 100)}`);
@@ -139,14 +148,20 @@ async function setupSharedWallet(walletKeypair: Keypair): Promise<void> {
   const address = walletKeypair.publicKey();
   try {
     // Check if account exists; if not, friendbot it first
-    const accountRes = await fetch(`${HORIZON_URL}/accounts/${address}`, { signal: AbortSignal.timeout(10000) });
+    const accountRes = await fetch(`${HORIZON_URL}/accounts/${address}`, {
+      signal: AbortSignal.timeout(10000),
+    });
     if (!accountRes.ok) {
-      console.log(`[Orchestrator] Shared wallet not found — running friendbot for ${address.slice(0, 8)}…`);
-      const fb = await fetch(`${HORIZON_URL}/friendbot?addr=${address}`, { signal: AbortSignal.timeout(15000) });
+      console.log(
+        `[Orchestrator] Shared wallet not found — running friendbot for ${address.slice(0, 8)}…`,
+      );
+      const fb = await fetch(`${HORIZON_URL}/friendbot?addr=${address}`, {
+        signal: AbortSignal.timeout(15000),
+      });
       if (!fb.ok) throw new Error(`Friendbot failed: ${fb.status}`);
       console.log(`[Orchestrator] Shared wallet funded via friendbot`);
       // Small delay for ledger to close
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 3000));
     }
 
     // Ensure USDC trustline
@@ -154,7 +169,9 @@ async function setupSharedWallet(walletKeypair: Keypair): Promise<void> {
     console.log(`[Orchestrator] USDC trustline confirmed for shared wallet`);
 
     // Check current USDC balance
-    const acctRes2 = await fetch(`${HORIZON_URL}/accounts/${address}`, { signal: AbortSignal.timeout(10000) });
+    const acctRes2 = await fetch(`${HORIZON_URL}/accounts/${address}`, {
+      signal: AbortSignal.timeout(10000),
+    });
     const acctData = await acctRes2.json();
     const balances: any[] = acctData.balances ?? [];
     const xlm = balances.find((b: any) => b.asset_type === 'native');
@@ -165,7 +182,9 @@ async function setupSharedWallet(walletKeypair: Keypair): Promise<void> {
 
     // Request testnet USDC if balance is low
     if (usdcBal < 1) {
-      console.log(`[Orchestrator] USDC balance low (${usdcBal}) — requesting from Circle testnet faucet…`);
+      console.log(
+        `[Orchestrator] USDC balance low (${usdcBal}) — requesting from Circle testnet faucet…`,
+      );
       await requestTestnetUsdc(address);
     }
   } catch (err: any) {
@@ -175,7 +194,9 @@ async function setupSharedWallet(walletKeypair: Keypair): Promise<void> {
 
 /** Build an unsigned changeTrust(USDC) XDR for the given user address, to be signed by Freighter. */
 async function buildUsdcTrustlineXdr(userAddress: string): Promise<string> {
-  const accountRes = await fetch(`${HORIZON_URL}/accounts/${userAddress}`, { signal: AbortSignal.timeout(10000) });
+  const accountRes = await fetch(`${HORIZON_URL}/accounts/${userAddress}`, {
+    signal: AbortSignal.timeout(10000),
+  });
   if (!accountRes.ok) throw new Error(`Account not found: ${userAddress}`);
   const accountData = await accountRes.json();
 
@@ -197,7 +218,7 @@ async function fetchAgents(): Promise<AgentRecord[]> {
   const response = await fetch(`${REGISTRY_URL}/agents`, { signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error(`Registry returned ${response.status}`);
   const data = await response.json();
-  return Array.isArray(data) ? data : data.agents ?? [];
+  return Array.isArray(data) ? data : (data.agents ?? []);
 }
 
 // ── WebSocket broadcast ───────────────────────────────────────────────────────
@@ -263,7 +284,10 @@ app.use(express.static(dashboardPath));
 app.get('/', (_req, res) => {
   const indexPath = path.join(dashboardPath, 'index.html');
   res.sendFile(indexPath, (err) => {
-    if (err) res.status(404).json({ error: 'Dashboard not built. Run npm run build in packages/dashboard.' });
+    if (err)
+      res
+        .status(404)
+        .json({ error: 'Dashboard not built. Run npm run build in packages/dashboard.' });
   });
 });
 
@@ -397,7 +421,10 @@ app.post('/api/orchestrators', async (req, res) => {
 
   // 409 if already created
   if (orchestratorStore.getByUser(user_address)) {
-    return res.status(409).json({ error: 'orchestrator_exists', message: 'This user already has a personal orchestrator' });
+    return res.status(409).json({
+      error: 'orchestrator_exists',
+      message: 'This user already has a personal orchestrator',
+    });
   }
 
   try {
@@ -415,7 +442,9 @@ app.post('/api/orchestrators', async (req, res) => {
     // 2b. Add USDC trust line and request testnet USDC for the new orchestrator wallet
     try {
       await addUsdcTrustline(orchKeypair);
-      console.log(`[Orchestrator] USDC trustline added for ${orchKeypair.publicKey().slice(0, 8)}…`);
+      console.log(
+        `[Orchestrator] USDC trustline added for ${orchKeypair.publicKey().slice(0, 8)}…`,
+      );
       // Request testnet USDC from Circle faucet so the wallet can pay agents immediately
       await requestTestnetUsdc(orchKeypair.publicKey());
     } catch (err: any) {
@@ -433,7 +462,9 @@ app.post('/api/orchestrators', async (req, res) => {
       created_at: new Date().toISOString(),
     });
 
-    console.log(`[Orchestrator] Created '${name}' for user ${user_address.slice(0, 8)}… → ${orchKeypair.publicKey().slice(0, 8)}…`);
+    console.log(
+      `[Orchestrator] Created '${name}' for user ${user_address.slice(0, 8)}… → ${orchKeypair.publicKey().slice(0, 8)}…`,
+    );
 
     // 4. Optionally build on-chain registration XDR (requires contract deployed)
     let registration_xdr: string | null = null;
@@ -467,7 +498,15 @@ app.post('/api/orchestrators', async (req, res) => {
 // Restore a previously-created orchestrator after a server restart / redeploy.
 // The client stores the full record in localStorage and re-seeds the server when it forgets.
 app.post('/api/orchestrators/restore', (req, res) => {
-  const { user_address, orchestrator_pubkey, orchestrator_secret, orchestrator_name, system_prompt, registered_on_chain, created_at } = req.body as {
+  const {
+    user_address,
+    orchestrator_pubkey,
+    orchestrator_secret,
+    orchestrator_name,
+    system_prompt,
+    registered_on_chain,
+    created_at,
+  } = req.body as {
     user_address?: string;
     orchestrator_pubkey?: string;
     orchestrator_secret?: string;
@@ -501,7 +540,9 @@ app.post('/api/orchestrators/restore', (req, res) => {
     created_at: created_at ?? new Date().toISOString(),
   });
 
-  console.log(`[Orchestrator] Restored '${orchestrator_name}' for user ${user_address.slice(0, 8)}… (registered_on_chain=${registered_on_chain})`);
+  console.log(
+    `[Orchestrator] Restored '${orchestrator_name}' for user ${user_address.slice(0, 8)}… (registered_on_chain=${registered_on_chain})`,
+  );
   res.json({ ok: true });
 });
 
@@ -706,7 +747,9 @@ app.post('/api/vault/force-complete', async (req, res) => {
     const orchKeypair = Keypair.fromSecret(record.orchestrator_secret);
     const tx_hash = await forceCompleteTask(orchKeypair, BigInt(vault_task_id));
     if (!tx_hash) return res.status(503).json({ error: 'AgentVault contract not configured' });
-    console.log(`[Orchestrator] Force-completed vault task ${vault_task_id} for ${user_address.slice(0, 8)}…`);
+    console.log(
+      `[Orchestrator] Force-completed vault task ${vault_task_id} for ${user_address.slice(0, 8)}…`,
+    );
     res.json({ success: true, tx_hash });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -735,7 +778,7 @@ app.delete('/api/tasks/history/:task_id', (req, res) => {
   if (!user_address) return res.status(400).json({ error: 'user_address query param is required' });
   // Verify the task belongs to this user before deleting
   const results = getTaskResults(user_address, 1000);
-  const owned = results.some(r => r.task_id === req.params.task_id);
+  const owned = results.some((r) => r.task_id === req.params.task_id);
   if (!owned) return res.status(403).json({ error: 'Not authorised or task not found' });
   const deleted = deleteTaskResult(req.params.task_id);
   if (!deleted) return res.status(404).json({ error: 'Task not found' });
@@ -751,26 +794,45 @@ app.post('/api/tasks/preview', async (req, res) => {
   const taskBudget = typeof budget === 'number' && budget > 0 ? budget : BUDGET_DEFAULT;
 
   let agents: AgentRecord[];
-  try { agents = await fetchAgents(); }
-  catch (err: any) { return res.status(503).json({ error: 'registry_unavailable', message: err.message }); }
-  if (agents.length === 0) return res.status(503).json({ error: 'no_agents', message: 'No agents registered' });
+  try {
+    agents = await fetchAgents();
+  } catch (err: any) {
+    return res.status(503).json({ error: 'registry_unavailable', message: err.message });
+  }
+  if (agents.length === 0)
+    return res.status(503).json({ error: 'no_agents', message: 'No agents registered' });
 
   let feasibility;
-  try { feasibility = await checkFeasibility(task, agents); }
-  catch (err: any) { return res.status(500).json({ error: 'feasibility_failed', message: err.message }); }
+  try {
+    feasibility = await checkFeasibility(task, agents);
+  } catch (err: any) {
+    return res.status(500).json({ error: 'feasibility_failed', message: err.message });
+  }
 
   if (!feasibility.feasible) {
-    return res.json({ feasible: false, missing: feasibility.missing, message: `Cannot complete — missing: ${feasibility.missing.join(', ')}` });
+    return res.json({
+      feasible: false,
+      missing: feasibility.missing,
+      message: `Cannot complete — missing: ${feasibility.missing.join(', ')}`,
+    });
   }
 
   let plan;
-  try { plan = await createPlan(task, agents, taskBudget); }
-  catch (err: any) { return res.status(500).json({ error: 'planning_failed', message: err.message }); }
+  try {
+    plan = await createPlan(task, agents, taskBudget);
+  } catch (err: any) {
+    return res.status(500).json({ error: 'planning_failed', message: err.message });
+  }
 
   return res.json({
     feasible: true,
     total_estimated_cost: plan.total_estimated_cost,
-    steps: plan.steps.map(s => ({ agent_name: s.agent_name, action: s.action, estimated_cost: s.estimated_cost, payment_method: s.payment_method })),
+    steps: plan.steps.map((s) => ({
+      agent_name: s.agent_name,
+      action: s.action,
+      estimated_cost: s.estimated_cost,
+      payment_method: s.payment_method,
+    })),
     reasoning: plan.reasoning,
     over_budget: plan.total_estimated_cost > taskBudget,
     budget: taskBudget,
@@ -795,7 +857,9 @@ app.post('/api/tasks', async (req, res) => {
   if (user_address) {
     const record = orchestratorStore.getByUser(user_address);
     if (!record) {
-      return res.status(400).json({ error: 'no_orchestrator', message: 'Create your orchestrator first' });
+      return res
+        .status(400)
+        .json({ error: 'no_orchestrator', message: 'Create your orchestrator first' });
     }
 
     // Pre-flight: vault balance check
@@ -822,7 +886,7 @@ app.post('/api/tasks', async (req, res) => {
   res.status(202).json({ status: 'accepted', task_id, task, budget: taskBudget });
   broadcast('task_accepted', { task_id, task, budget: taskBudget });
 
-  runTask(task_id, task, taskBudget, user_address ?? null).catch(err => {
+  runTask(task_id, task, taskBudget, user_address ?? null).catch((err) => {
     console.error('[Orchestrator] Task pipeline error:', err.message);
     broadcast('task_error', { task_id, task, error: err.message });
   });
@@ -858,7 +922,12 @@ app.post('/api/tasks/:id/reject', (req, res) => {
 
 // ── Task pipeline ────────────────────────────────────────────────────────────
 
-async function runTask(task_id: string, task: string, budget: number, userAddress: string | null): Promise<void> {
+async function runTask(
+  task_id: string,
+  task: string,
+  budget: number,
+  userAddress: string | null,
+): Promise<void> {
   // 1. Fetch available agents
   let agents: AgentRecord[];
   try {
@@ -878,7 +947,7 @@ async function runTask(task_id: string, task: string, budget: number, userAddres
   const allScored = scoreAgents(agents, [], budget / Math.max(1, agents.length));
   broadcast('agents_scored', {
     task_id,
-    agents: allScored.map(s => ({
+    agents: allScored.map((s) => ({
       agent_id: s.agent.agent_id,
       name: s.agent.name,
       score: s.score,
@@ -920,25 +989,29 @@ async function runTask(task_id: string, task: string, budget: number, userAddres
   // 4. Validate
   const validation = validatePlan(plan, agents, budget);
   if (!validation.valid) {
-    broadcast('task_error', { task_id, task, error: `Invalid plan: ${validation.errors.join('; ')}` });
+    broadcast('task_error', {
+      task_id,
+      task,
+      error: `Invalid plan: ${validation.errors.join('; ')}`,
+    });
     return;
   }
 
   // 5. Compute per-step selection reasoning
-  const stepSelections = plan.steps.map(step => {
-    const stepAgent = agents.find(a => a.agent_id === step.agent_id);
+  const stepSelections = plan.steps.map((step) => {
+    const stepAgent = agents.find((a) => a.agent_id === step.agent_id);
     const neededCaps = stepAgent?.capabilities ?? [];
     const ranked = scoreAgents(agents, neededCaps, step.estimated_cost);
 
-    const selectedEntry = ranked.find(s => s.agent.agent_id === step.agent_id);
+    const selectedEntry = ranked.find((s) => s.agent.agent_id === step.agent_id);
     const selectedScore = selectedEntry?.score ?? 0;
-    const selectedRank = ranked.findIndex(s => s.agent.agent_id === step.agent_id) + 1;
+    const selectedRank = ranked.findIndex((s) => s.agent.agent_id === step.agent_id) + 1;
 
     // Top 2 alternatives (different from selected)
     const alternatives = ranked
-      .filter(s => s.agent.agent_id !== step.agent_id)
+      .filter((s) => s.agent.agent_id !== step.agent_id)
       .slice(0, 2)
-      .map(s => ({
+      .map((s) => ({
         agent_id: s.agent.agent_id,
         name: s.agent.name,
         score: s.score,
@@ -1009,8 +1082,14 @@ async function runTask(task_id: string, task: string, budget: number, userAddres
   const planCost = plan.total_estimated_cost;
   if (VAULT_ACTIVE && orchestratorKeypair) {
     if (!orchRecord?.registered_on_chain) {
-      broadcast('vault_skipped', { task_id, reason: 'Orchestrator not registered on-chain — complete on-chain registration in wallet to enable vault' });
-      console.warn(`[Orchestrator] Skipping vault for task ${task_id} — orchestrator not registered on-chain`);
+      broadcast('vault_skipped', {
+        task_id,
+        reason:
+          'Orchestrator not registered on-chain — complete on-chain registration in wallet to enable vault',
+      });
+      console.warn(
+        `[Orchestrator] Skipping vault for task ${task_id} — orchestrator not registered on-chain`,
+      );
     } else {
       vaultTaskId = await vaultCreateTask(orchestratorKeypair, planCost);
     }
@@ -1048,13 +1127,13 @@ async function runTask(task_id: string, task: string, budget: number, userAddres
   // 8. Execute
   const executor = new PlanExecutor(agents, orchestratorKeypair, vaultTaskId);
 
-  executor.on('task_started',    data => broadcast('task_started', data));
-  executor.on('step_started',    data => broadcast('step_started', data));
-  executor.on('step_complete',   data => {
+  executor.on('task_started', (data) => broadcast('task_started', data));
+  executor.on('step_started', (data) => broadcast('step_started', data));
+  executor.on('step_complete', (data) => {
     broadcast('step_complete', data);
   });
-  executor.on('step_failed',     data => broadcast('step_failed', data));
-  executor.on('budget_released', data => {
+  executor.on('step_failed', (data) => broadcast('step_failed', data));
+  executor.on('budget_released', (data) => {
     broadcast('budget_released', data);
     // Log real agent payment — budget_released carries the actual amount and tx_hash
     if (userAddress && data.amount && data.amount > 0) {
@@ -1078,7 +1157,7 @@ async function runTask(task_id: string, task: string, budget: number, userAddres
       });
     }
   });
-  executor.on('task_complete',   data => broadcast('task_complete', data));
+  executor.on('task_complete', (data) => broadcast('task_complete', data));
 
   try {
     const result = await executor.execute(plan, task, REGISTRY_URL, task_id);
@@ -1097,7 +1176,9 @@ async function runTask(task_id: string, task: string, budget: number, userAddres
     }
 
     broadcast('task_result', result);
-    console.log(`[Orchestrator] Task ${result.task_id} ${result.status} | cost: $${result.total_cost.toFixed(4)} | ${result.total_time_ms}ms`);
+    console.log(
+      `[Orchestrator] Task ${result.task_id} ${result.status} | cost: $${result.total_cost.toFixed(4)} | ${result.total_time_ms}ms`,
+    );
 
     // Log completion
     if (userAddress) {

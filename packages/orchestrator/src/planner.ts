@@ -22,7 +22,7 @@ export async function createPlan(
   const scored = scoreAgents(availableAgents, [], budget / Math.max(1, availableAgents.length));
   const rankMap = new Map(scored.map((s, i) => [s.agent.agent_id, i + 1]));
 
-  const agentList = scored.map(s => ({
+  const agentList = scored.map((s) => ({
     agent_id: s.agent.agent_id,
     name: s.agent.name,
     description: s.agent.description,
@@ -30,8 +30,8 @@ export async function createPlan(
     payment_method: s.agent.pricing.model,
     price_per_call: s.agent.pricing.price_per_call,
     reputation_score: s.agent.reputation?.score ?? 50,
-    marketplace_score: s.score,           // composite score from selector algorithm
-    selection_rank: rankMap.get(s.agent.agent_id) ?? 99,  // 1 = best
+    marketplace_score: s.score, // composite score from selector algorithm
+    selection_rank: rankMap.get(s.agent.agent_id) ?? 99, // 1 = best
   }));
 
   const prompt = `${STELLAR_CONTEXT}
@@ -83,7 +83,10 @@ Return a JSON object with this exact shape:
 
 function parsePlan(text: string, agents: AgentRecord[]): ExecutionPlan {
   // Strip markdown code fences if present
-  const cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  const cleaned = text
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
 
   let plan: ExecutionPlan;
   try {
@@ -96,8 +99,8 @@ function parsePlan(text: string, agents: AgentRecord[]): ExecutionPlan {
   }
 
   // Normalise depends_on: ensure it's null or number[]
-  const agentIds = new Set(agents.map(a => a.agent_id));
-  plan.steps = plan.steps.map(step => {
+  const agentIds = new Set(agents.map((a) => a.agent_id));
+  plan.steps = plan.steps.map((step) => {
     let depends_on: number | number[] | null = step.depends_on;
     if (depends_on !== null && !Array.isArray(depends_on)) {
       depends_on = [depends_on as number];

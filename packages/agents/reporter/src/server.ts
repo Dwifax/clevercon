@@ -11,7 +11,7 @@ import { registerSelf } from './register.js';
 const PORT = parseInt(process.env.REPORT_AGENT_PORT || process.env.PORT || '4005');
 const SECRET_KEY = process.env.REPORT_AGENT_SECRET_KEY!;
 const FACILITATOR_URL = process.env.X402_FACILITATOR_URL || 'https://www.x402.org/facilitator';
-const NETWORK = process.env.STELLAR_NETWORK || 'stellar:testnet';
+const NETWORK = (process.env.STELLAR_NETWORK || 'stellar:testnet') as `${string}:${string}`;
 
 if (!SECRET_KEY) {
   console.error('[ReporterBot] REPORT_AGENT_SECRET_KEY not set');
@@ -23,8 +23,10 @@ const PAY_TO = keypair.publicKey();
 
 // ── x402 setup ────────────────────────────────────────────────────
 const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
-const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register(NETWORK, new ExactStellarScheme());
+const resourceServer = new x402ResourceServer(facilitatorClient).register(
+  NETWORK,
+  new ExactStellarScheme(),
+);
 
 const app = express();
 app.use(cors());
@@ -38,7 +40,8 @@ app.get('/health', (_req, res) => {
 app.get('/', (_req, res) => {
   res.json({
     agent: 'ReporterBot',
-    description: 'Claude-powered report formatter. Converts data and analysis into structured markdown reports.',
+    description:
+      'Claude-powered report formatter. Converts data and analysis into structured markdown reports.',
     capabilities: ['report-writing', 'formatting', 'summarization', 'document-generation'],
     pricing: { model: 'x402', price_per_call: 0.02, currency: 'USDC' },
     stellar_address: PAY_TO,
@@ -63,7 +66,7 @@ app.use(
     undefined,
     undefined,
     true,
-  )
+  ),
 );
 
 // ── Paid endpoint ─────────────────────────────────────────────────
@@ -81,7 +84,9 @@ app.post('/report', async (req, res) => {
       const combined = [query, context].filter(Boolean).join('\n\n');
       reportInput = combined;
     } else {
-      res.status(400).json({ error: 'Provide either data (string/object) or sections (array of {title, content})' });
+      res.status(400).json({
+        error: 'Provide either data (string/object) or sections (array of {title, content})',
+      });
       return;
     }
 

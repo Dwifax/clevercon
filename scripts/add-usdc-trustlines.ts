@@ -26,7 +26,7 @@ async function addTrustline(name: string, secretKey: string): Promise<void> {
 
     // Check if trustline already exists
     const existing = account.balances.find(
-      (b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER
+      (b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER,
     );
     if (existing) {
       console.log(`[${name}] ✓ USDC trustline already exists (balance: ${existing.balance})`);
@@ -66,7 +66,7 @@ async function main() {
   console.log('Adding USDC trustlines to all wallets...\n');
   for (const [name, w] of Object.entries(wallets) as [string, any][]) {
     await addTrustline(name, w.secretKey);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
   }
   console.log('\nDone! Now fund each wallet with USDC at https://faucet.circle.com');
   console.log('Select "Stellar Testnet" and paste each public key:');

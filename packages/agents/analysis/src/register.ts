@@ -13,8 +13,15 @@ export async function registerSelf(): Promise<void> {
   const manifest = {
     agent_id: 'analysis-agent',
     name: 'AnalysisBot',
-    description: 'Claude-powered data analysis using MPP pay-per-chunk. Identifies trends, risks, and insights from structured data.',
-    capabilities: ['data-analysis', 'comparison', 'trend-analysis', 'sentiment-analysis', 'risk-assessment'],
+    description:
+      'Claude-powered data analysis using MPP pay-per-chunk. Identifies trends, risks, and insights from structured data.',
+    capabilities: [
+      'data-analysis',
+      'comparison',
+      'trend-analysis',
+      'sentiment-analysis',
+      'risk-assessment',
+    ],
     pricing: { model: 'mpp', price_per_call: 0.005, currency: 'USDC' },
     endpoint: `${SELF_URL}/analyze`,
     stellar_address: keypair.publicKey(),

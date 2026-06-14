@@ -12,7 +12,8 @@ export const TESTNET_PASSPHRASE = 'Test SDF Network ; September 2015';
 export const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 
 // x402 facilitator
-export const FACILITATOR_URL = process.env.X402_FACILITATOR_URL || 'https://www.x402.org/facilitator';
+export const FACILITATOR_URL =
+  process.env.X402_FACILITATOR_URL || 'https://www.x402.org/facilitator';
 
 // External x402 services
 export const XLM402_BASE = process.env.XLM402_BASE_URL || 'https://xlm402.com';

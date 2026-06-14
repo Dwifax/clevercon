@@ -13,8 +13,16 @@ export async function registerSelf(): Promise<void> {
   const manifest = {
     agent_id: 'stellar-oracle',
     name: 'StellarOracle',
-    description: 'Reads live Stellar blockchain data via Horizon API — DEX trades, orderbooks, account balances, network stats, and cross-exchange crypto prices.',
-    capabilities: ['blockchain-data', 'crypto-prices', 'stellar-dex', 'orderbook', 'network-stats', 'market-data'],
+    description:
+      'Reads live Stellar blockchain data via Horizon API — DEX trades, orderbooks, account balances, network stats, and cross-exchange crypto prices.',
+    capabilities: [
+      'blockchain-data',
+      'crypto-prices',
+      'stellar-dex',
+      'orderbook',
+      'network-stats',
+      'market-data',
+    ],
     pricing: { model: 'x402', price_per_call: 0.02, currency: 'USDC' },
     endpoint: `${SELF_URL}/query`,
     stellar_address: keypair.publicKey(),

@@ -80,18 +80,18 @@ export async function makeX402Payment(
       }
 
       const data = await response.json();
-      const output = typeof data.result === 'string'
-        ? data.result
-        : JSON.stringify(data.result ?? data);
+      const output =
+        typeof data.result === 'string' ? data.result : JSON.stringify(data.result ?? data);
 
       return { output, tx_hash };
-
     } catch (err: any) {
       lastError = err;
       if (attempt < MAX_ATTEMPTS) {
         const backoffMs = 2000 * attempt;
-        console.warn(`[x402-client] Attempt ${attempt} failed for ${endpoint}: ${err.message} — retrying in ${backoffMs}ms`);
-        await new Promise(r => setTimeout(r, backoffMs));
+        console.warn(
+          `[x402-client] Attempt ${attempt} failed for ${endpoint}: ${err.message} — retrying in ${backoffMs}ms`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
       }
     }
   }

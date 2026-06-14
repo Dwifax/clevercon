@@ -13,8 +13,16 @@ export async function registerSelf(): Promise<void> {
   const manifest = {
     agent_id: 'web-intel-v1',
     name: 'WebIntelligence',
-    description: 'Fetches real news across blockchain, tech, and AI categories via xlm402.com x402 services. Extracts key points using Claude.',
-    capabilities: ['news', 'web-search', 'web-scraping', 'information-retrieval', 'blockchain-news', 'tech-news'],
+    description:
+      'Fetches real news across blockchain, tech, and AI categories via xlm402.com x402 services. Extracts key points using Claude.',
+    capabilities: [
+      'news',
+      'web-search',
+      'web-scraping',
+      'information-retrieval',
+      'blockchain-news',
+      'tech-news',
+    ],
     pricing: { model: 'x402', price_per_call: 0.02, currency: 'USDC' },
     endpoint: `${SELF_URL}/query`,
     stellar_address: keypair.publicKey(),

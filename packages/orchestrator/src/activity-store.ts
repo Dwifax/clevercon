@@ -78,7 +78,7 @@ export function append(event: Omit<ActivityEvent, 'id' | 'timestamp'>): Activity
 export function getForUser(userAddress: string, limit = 50): ActivityEvent[] {
   const log = load();
   return log
-    .filter(e => e.user_address === userAddress)
+    .filter((e) => e.user_address === userAddress)
     .slice(-limit)
     .reverse();
 }
@@ -99,16 +99,16 @@ export interface PulseStats {
 
 export function getPulse(): PulseStats {
   const log = load();
-  const started = log.filter(e => e.event === 'task_started');
-  const completed = log.filter(e => e.event === 'task_completed');
-  const failed = log.filter(e => e.event === 'task_failed');
+  const started = log.filter((e) => e.event === 'task_started');
+  const completed = log.filter((e) => e.event === 'task_completed');
+  const failed = log.filter((e) => e.event === 'task_failed');
 
   // Active = started but not yet completed or failed
-  const finishedIds = new Set([...completed, ...failed].map(e => e.task_id));
-  const active = started.filter(e => !finishedIds.has(e.task_id));
+  const finishedIds = new Set([...completed, ...failed].map((e) => e.task_id));
+  const active = started.filter((e) => !finishedIds.has(e.task_id));
 
   // Total spent
-  const payments = log.filter(e => e.event === 'payment_released' && e.amount_usdc);
+  const payments = log.filter((e) => e.event === 'payment_released' && e.amount_usdc);
   const totalSpent = payments.reduce((sum, e) => sum + (e.amount_usdc ?? 0), 0);
 
   // Most hired agent
@@ -119,14 +119,17 @@ export function getPulse(): PulseStats {
   let mostHired: string | null = null;
   let maxCount = 0;
   for (const [name, count] of agentCounts) {
-    if (count > maxCount) { mostHired = name; maxCount = count; }
+    if (count > maxCount) {
+      mostHired = name;
+      maxCount = count;
+    }
   }
 
   // Recent completions
   const recentCompletions = completed
     .slice(-5)
     .reverse()
-    .map(e => ({
+    .map((e) => ({
       task_description: e.task_description ?? '(unknown)',
       amount_usdc: e.amount_usdc ?? 0,
       timestamp: e.timestamp,

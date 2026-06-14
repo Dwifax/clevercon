@@ -12,7 +12,7 @@ import { registerSelf } from './register.js';
 const PORT = parseInt(process.env.STELLAR_ORACLE_PORT || process.env.PORT || '4001');
 const SECRET_KEY = process.env.STELLAR_ORACLE_SECRET_KEY!;
 const FACILITATOR_URL = process.env.X402_FACILITATOR_URL || 'https://www.x402.org/facilitator';
-const NETWORK = process.env.STELLAR_NETWORK || 'stellar:testnet';
+const NETWORK = (process.env.STELLAR_NETWORK || 'stellar:testnet') as `${string}:${string}`;
 
 if (!SECRET_KEY) {
   console.error('[StellarOracle] STELLAR_ORACLE_SECRET_KEY not set');
@@ -24,8 +24,10 @@ const PAY_TO = keypair.publicKey();
 
 // ── x402 setup ───────────────────────────────────────────────────
 const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
-const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register(NETWORK, new ExactStellarScheme());
+const resourceServer = new x402ResourceServer(facilitatorClient).register(
+  NETWORK,
+  new ExactStellarScheme(),
+);
 
 const app = express();
 app.use(cors());
@@ -40,7 +42,14 @@ app.get('/', (_req, res) => {
   res.json({
     agent: 'StellarOracle',
     description: 'Live Stellar blockchain data — DEX trades, orderbooks, crypto prices',
-    capabilities: ['blockchain-data', 'crypto-prices', 'stellar-dex', 'orderbook', 'network-stats', 'market-data'],
+    capabilities: [
+      'blockchain-data',
+      'crypto-prices',
+      'stellar-dex',
+      'orderbook',
+      'network-stats',
+      'market-data',
+    ],
     pricing: { model: 'x402', price_per_call: 0.02, currency: 'USDC' },
     stellar_address: PAY_TO,
   });
@@ -61,10 +70,10 @@ app.use(
       },
     },
     resourceServer,
-    undefined,  // paywallConfig
-    undefined,  // paywall
-    true,       // syncFacilitatorOnStart
-  )
+    undefined, // paywallConfig
+    undefined, // paywall
+    true, // syncFacilitatorOnStart
+  ),
 );
 
 // ── Paid endpoint ─────────────────────────────────────────────────
@@ -73,9 +82,20 @@ app.post('/query', async (req, res) => {
     const { query = '' } = req.body;
     const q = query.toLowerCase();
 
-    const wantsTrades = q.includes('trade') || q.includes('price') || q.includes('xlm') || q.includes('market') || q === '';
-    const wantsOrderbook = q.includes('order') || q.includes('book') || q.includes('bid') || q.includes('ask') || q === '';
-    const wantsNetwork = q.includes('network') || q.includes('ledger') || q.includes('stats') || q === '';
+    const wantsTrades =
+      q.includes('trade') ||
+      q.includes('price') ||
+      q.includes('xlm') ||
+      q.includes('market') ||
+      q === '';
+    const wantsOrderbook =
+      q.includes('order') ||
+      q.includes('book') ||
+      q.includes('bid') ||
+      q.includes('ask') ||
+      q === '';
+    const wantsNetwork =
+      q.includes('network') || q.includes('ledger') || q.includes('stats') || q === '';
     const wantsBalances = q.includes('balance') || q.includes('account');
     const wantsCandles = q.includes('candle') || q.includes('ohlc') || q.includes('chart');
 
@@ -89,14 +109,18 @@ app.post('/query', async (req, res) => {
       wantsOrderbook ? getOrderbook() : Promise.resolve(null),
       wantsNetwork ? getNetworkStats() : Promise.resolve(null),
       // Always fetch cross-exchange quote when price/market is requested
-      (wantsTrades || q === '') ? getCryptoQuote(symbol).catch(e => {
-        console.warn('[StellarOracle] xlm402 quote failed:', e.message);
-        return null;
-      }) : Promise.resolve(null),
-      wantsCandles ? getCryptoCandles(symbol).catch(e => {
-        console.warn('[StellarOracle] xlm402 candles failed:', e.message);
-        return null;
-      }) : Promise.resolve(null),
+      wantsTrades || q === ''
+        ? getCryptoQuote(symbol).catch((e) => {
+            console.warn('[StellarOracle] xlm402 quote failed:', e.message);
+            return null;
+          })
+        : Promise.resolve(null),
+      wantsCandles
+        ? getCryptoCandles(symbol).catch((e) => {
+            console.warn('[StellarOracle] xlm402 candles failed:', e.message);
+            return null;
+          })
+        : Promise.resolve(null),
     ]);
 
     let balances = null;

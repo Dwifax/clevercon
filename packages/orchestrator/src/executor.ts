@@ -15,7 +15,13 @@
 import { EventEmitter } from 'events';
 import { Keypair } from '@stellar/stellar-sdk';
 import { v4 as uuidv4 } from 'uuid';
-import type { AgentRecord, ExecutionPlan, ExecutionStep, StepResult, TaskResult } from '@clevercon/common';
+import type {
+  AgentRecord,
+  ExecutionPlan,
+  ExecutionStep,
+  StepResult,
+  TaskResult,
+} from '@clevercon/common';
 import { txExplorerUrl } from '@clevercon/common';
 import { makeX402Payment } from './x402-client.js';
 import { makeMPPPayment } from './mpp-client.js';
@@ -25,12 +31,26 @@ import { releasePayment, completeTask, VAULT_ACTIVE } from './agent-vault-client
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface ExecutorEvents {
-  task_started:    { task_id: string; task: string; step_count: number };
-  step_started:    { task_id: string; step_id: number; agent_name: string; action: string };
-  step_complete:   { task_id: string; step_id: number; agent_name: string; success: boolean; tx_hash: string | null; latency_ms: number };
-  step_failed:     { task_id: string; step_id: number; agent_name: string; error: string };
-  budget_released: { task_id: string; step_id: number; agent_name: string; amount: number; vault_task_id: bigint; tx_hash: string };
-  task_complete:   { task_id: string; status: string; total_cost: number; total_time_ms: number };
+  task_started: { task_id: string; task: string; step_count: number };
+  step_started: { task_id: string; step_id: number; agent_name: string; action: string };
+  step_complete: {
+    task_id: string;
+    step_id: number;
+    agent_name: string;
+    success: boolean;
+    tx_hash: string | null;
+    latency_ms: number;
+  };
+  step_failed: { task_id: string; step_id: number; agent_name: string; error: string };
+  budget_released: {
+    task_id: string;
+    step_id: number;
+    agent_name: string;
+    amount: number;
+    vault_task_id: bigint;
+    tx_hash: string;
+  };
+  task_complete: { task_id: string; status: string; total_cost: number; total_time_ms: number };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,18 +61,18 @@ function buildDependencyLevels(steps: ExecutionStep[]): number[][] {
   const levels: number[][] = [];
 
   while (remaining.length > 0) {
-    const ready = remaining.filter(step => {
+    const ready = remaining.filter((step) => {
       const deps = normaliseDeps(step.depends_on);
-      return deps.every(d => completed.has(d));
+      return deps.every((d) => completed.has(d));
     });
 
     if (ready.length === 0) {
-      levels.push(remaining.map(s => s.step_id));
+      levels.push(remaining.map((s) => s.step_id));
       break;
     }
 
-    levels.push(ready.map(s => s.step_id));
-    ready.forEach(s => {
+    levels.push(ready.map((s) => s.step_id));
+    ready.forEach((s) => {
       completed.add(s.step_id);
       remaining.splice(remaining.indexOf(s), 1);
     });
@@ -72,7 +92,7 @@ async function checkHealth(agent: AgentRecord): Promise<boolean> {
   // Poll every 10s for up to ~90s total so we catch the service after it finishes starting.
   const delays = [0, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000]; // 9 attempts, ~80s total wait
   for (let attempt = 0; attempt < delays.length; attempt++) {
-    if (delays[attempt] > 0) await new Promise(r => setTimeout(r, delays[attempt]));
+    if (delays[attempt] > 0) await new Promise((r) => setTimeout(r, delays[attempt]));
     try {
       const response = await fetch(agent.health_check, { signal: AbortSignal.timeout(15000) });
       if (response.ok) return true;
@@ -101,7 +121,7 @@ export class PlanExecutor extends EventEmitter {
     vaultTaskId: bigint | null = null,
   ) {
     super();
-    this.agentMap = new Map(availableAgents.map(a => [a.agent_id, a]));
+    this.agentMap = new Map(availableAgents.map((a) => [a.agent_id, a]));
     this.orchestratorKeypair = orchestratorKeypair;
     this.vaultTaskId = vaultTaskId;
   }
@@ -119,18 +139,16 @@ export class PlanExecutor extends EventEmitter {
 
     const stepResultMap = new Map<number, StepResult>();
     const levels = buildDependencyLevels(plan.steps);
-    const stepMap = new Map(plan.steps.map(s => [s.step_id, s]));
+    const stepMap = new Map(plan.steps.map((s) => [s.step_id, s]));
 
     let allSucceeded = true;
     let anySucceeded = false;
 
     for (const level of levels) {
-      const levelSteps = level.map(id => stepMap.get(id)!);
+      const levelSteps = level.map((id) => stepMap.get(id)!);
 
       const results = await Promise.all(
-        levelSteps.map(step =>
-          this.executeStep(step, task_id, stepResultMap, registryUrl),
-        ),
+        levelSteps.map((step) => this.executeStep(step, task_id, stepResultMap, registryUrl)),
       );
 
       for (const result of results) {
@@ -140,16 +158,15 @@ export class PlanExecutor extends EventEmitter {
       }
     }
 
-    const stepResults = plan.steps.map(s => stepResultMap.get(s.step_id)!).filter(Boolean);
+    const stepResults = plan.steps.map((s) => stepResultMap.get(s.step_id)!).filter(Boolean);
     const total_cost = stepResults.reduce((sum, s) => sum + (s.payment.amount ?? 0), 0);
     const total_time_ms = Date.now() - startTime;
 
     const successfulOutputs = stepResults
-      .filter(s => s.success && s.output)
-      .map(s => s.output as string);
-    const final_output = successfulOutputs.length > 0
-      ? successfulOutputs[successfulOutputs.length - 1]
-      : null;
+      .filter((s) => s.success && s.output)
+      .map((s) => s.output as string);
+    const final_output =
+      successfulOutputs.length > 0 ? successfulOutputs[successfulOutputs.length - 1] : null;
 
     const status: TaskResult['status'] = allSucceeded
       ? 'complete'
@@ -171,7 +188,9 @@ export class PlanExecutor extends EventEmitter {
     this.emit('task_complete', { task_id, status, total_cost, total_time_ms });
 
     for (const result of stepResults) {
-      this.postFeedback(result, registryUrl).catch(() => {/* best-effort */});
+      this.postFeedback(result, registryUrl).catch(() => {
+        /* best-effort */
+      });
     }
 
     return taskResult;
@@ -188,11 +207,12 @@ export class PlanExecutor extends EventEmitter {
 
     const deps = normaliseDeps(step.depends_on);
     const contextParts = deps
-      .map(id => previousResults.get(id))
+      .map((id) => previousResults.get(id))
       .filter((r): r is StepResult => r !== null && r !== undefined)
-      .map(r => r.success
-        ? (r.output ?? '')
-        : `[Step ${r.step_id} (${r.agent_name}) failed: ${r.error ?? 'unknown error'} — no data available from this step]`
+      .map((r) =>
+        r.success
+          ? (r.output ?? '')
+          : `[Step ${r.step_id} (${r.agent_name}) failed: ${r.error ?? 'unknown error'} — no data available from this step]`,
       );
     const context = contextParts.join('\n\n');
 
@@ -206,15 +226,29 @@ export class PlanExecutor extends EventEmitter {
     if (!agent) {
       const latency_ms = Date.now() - stepStart;
       const result = this.makeFailedResult(step, `Agent not found: ${step.agent_id}`, latency_ms);
-      this.emit('step_failed', { task_id, step_id: step.step_id, agent_name: step.agent_name, error: result.error! });
+      this.emit('step_failed', {
+        task_id,
+        step_id: step.step_id,
+        agent_name: step.agent_name,
+        error: result.error!,
+      });
       return result;
     }
 
     const healthy = await checkHealth(agent);
     if (!healthy) {
       const latency_ms = Date.now() - stepStart;
-      const result = this.makeFailedResult(step, `Agent health check failed: ${agent.health_check}`, latency_ms);
-      this.emit('step_failed', { task_id, step_id: step.step_id, agent_name: step.agent_name, error: result.error! });
+      const result = this.makeFailedResult(
+        step,
+        `Agent health check failed: ${agent.health_check}`,
+        latency_ms,
+      );
+      this.emit('step_failed', {
+        task_id,
+        step_id: step.step_id,
+        agent_name: step.agent_name,
+        error: result.error!,
+      });
       return result;
     }
 
@@ -230,8 +264,17 @@ export class PlanExecutor extends EventEmitter {
 
         if (!released) {
           const latency_ms = Date.now() - stepStart;
-          const result = this.makeFailedResult(step, `Vault release failed for step ${step.step_id}`, latency_ms);
-          this.emit('step_failed', { task_id, step_id: step.step_id, agent_name: step.agent_name, error: result.error! });
+          const result = this.makeFailedResult(
+            step,
+            `Vault release failed for step ${step.step_id}`,
+            latency_ms,
+          );
+          this.emit('step_failed', {
+            task_id,
+            step_id: step.step_id,
+            agent_name: step.agent_name,
+            error: result.error!,
+          });
           return result;
         }
 
@@ -246,11 +289,14 @@ export class PlanExecutor extends EventEmitter {
             vault_task_id: Number(this.vaultTaskId),
             tx_hash: releaseHash ?? '',
           });
-        } catch { /* non-fatal */ }
+        } catch {
+          /* non-fatal */
+        }
       }
 
       // ── Agent call: orchestrator → agent (x402 or MPP)
-      const orchestratorSecret = this.orchestratorKeypair?.secret() ?? process.env.ORCHESTRATOR_SECRET_KEY!;
+      const orchestratorSecret =
+        this.orchestratorKeypair?.secret() ?? process.env.ORCHESTRATOR_SECRET_KEY!;
       let output: string;
       let tx_hash: string | null = null;
 
@@ -309,7 +355,12 @@ export class PlanExecutor extends EventEmitter {
     } catch (err: any) {
       const latency_ms = Date.now() - stepStart;
       const result = this.makeFailedResult(step, err.message ?? String(err), latency_ms);
-      this.emit('step_failed', { task_id, step_id: step.step_id, agent_name: step.agent_name, error: result.error! });
+      this.emit('step_failed', {
+        task_id,
+        step_id: step.step_id,
+        agent_name: step.agent_name,
+        error: result.error!,
+      });
       return result;
     }
   }
@@ -321,7 +372,9 @@ export class PlanExecutor extends EventEmitter {
   private async releaseSequential<T>(fn: () => Promise<T>): Promise<T> {
     const prev = this.releaseLock;
     let resolveNext!: () => void;
-    this.releaseLock = new Promise(r => { resolveNext = r; });
+    this.releaseLock = new Promise((r) => {
+      resolveNext = r;
+    });
     await prev;
     try {
       return await fn();

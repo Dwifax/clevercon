@@ -55,7 +55,7 @@ export function getByUser(userAddress: string): OrchestratorRecord | null {
 
 export function getByOrchestratorPubkey(pubkey: string): OrchestratorRecord | null {
   const store = load();
-  return Object.values(store).find(r => r.orchestrator_pubkey === pubkey) ?? null;
+  return Object.values(store).find((r) => r.orchestrator_pubkey === pubkey) ?? null;
 }
 
 export function upsert(record: OrchestratorRecord): void {

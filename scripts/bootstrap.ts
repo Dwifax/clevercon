@@ -28,104 +28,108 @@ const APPROVAL_TIMEOUT_MS = 10_000; // How long to wait for plan before auto-app
 
 const args = process.argv.slice(2);
 const AUTO_APPROVE = args.includes('--auto-approve');
-const delayArg = args.find(a => a.startsWith('--delay='));
-const TASK_DELAY_MS = delayArg
-  ? parseInt(delayArg.split('=')[1])
-  : DEFAULT_DELAY_MS;
+const delayArg = args.find((a) => a.startsWith('--delay='));
+const TASK_DELAY_MS = delayArg ? parseInt(delayArg.split('=')[1]) : DEFAULT_DELAY_MS;
 
 // ── Task catalog ───────────────────────────────────────────────────────────────
 // 25 diverse tasks covering all agent capabilities
 
 const TASKS = [
   // Stellar Oracle — blockchain data
-  { task: 'What is the current price of XLM in USD?', budget: 0.10 },
+  { task: 'What is the current price of XLM in USD?', budget: 0.1 },
   { task: 'Show me the top trading pairs on the Stellar DEX by volume.', budget: 0.15 },
-  { task: 'What is the current XLM/USDC exchange rate on the Stellar DEX?', budget: 0.10 },
-  { task: 'Get the Stellar network stats including ledger count and transaction throughput.', budget: 0.10 },
-  { task: 'What are the current BTC and ETH prices according to the Stellar oracle?', budget: 0.10 },
+  { task: 'What is the current XLM/USDC exchange rate on the Stellar DEX?', budget: 0.1 },
+  {
+    task: 'Get the Stellar network stats including ledger count and transaction throughput.',
+    budget: 0.1,
+  },
+  { task: 'What are the current BTC and ETH prices according to the Stellar oracle?', budget: 0.1 },
 
   // Web Intel — news retrieval
   { task: 'Get the latest blockchain news headlines.', budget: 0.15 },
   { task: 'What are the top crypto news stories today?', budget: 0.15 },
-  { task: 'Fetch the latest news about Stellar (XLM) and summarise the key developments.', budget: 0.20 },
+  {
+    task: 'Fetch the latest news about Stellar (XLM) and summarise the key developments.',
+    budget: 0.2,
+  },
   { task: 'What are the latest AI and technology news headlines?', budget: 0.15 },
   { task: 'Get recent news about DeFi and decentralised finance.', budget: 0.15 },
 
   // Multi-agent: fetch + analysis
   {
     task: 'Fetch the latest blockchain news and analyse the overall sentiment — is the market bullish or bearish?',
-    budget: 0.40,
+    budget: 0.4,
   },
   {
     task: 'Get the current XLM price and analyse whether it represents a good entry point based on recent trends.',
-    budget: 0.40,
+    budget: 0.4,
   },
   {
-    task: 'Fetch today\'s crypto news and identify the three most significant market-moving events.',
-    budget: 0.40,
+    task: "Fetch today's crypto news and identify the three most significant market-moving events.",
+    budget: 0.4,
   },
 
   // Multi-agent: fetch + analysis + report
   {
     task: 'Research the current state of the Stellar ecosystem — get news and on-chain data, then write a structured briefing report.',
-    budget: 0.60,
+    budget: 0.6,
   },
   {
     task: 'Get the latest blockchain and crypto news, analyse the key trends, and produce an executive summary report.',
-    budget: 0.60,
+    budget: 0.6,
   },
   {
     task: 'Fetch the current XLM price and Stellar DEX activity, then produce a brief market report.',
-    budget: 0.60,
+    budget: 0.6,
   },
 
   // Analysis-heavy
   {
     task: 'Analyse the current Stellar DEX liquidity and identify the most actively traded asset pairs.',
-    budget: 0.50,
+    budget: 0.5,
   },
   {
     task: 'Compare the price of XLM across multiple sources and highlight any discrepancies.',
-    budget: 0.40,
+    budget: 0.4,
   },
 
   // Reporter-only style
   {
     task: 'Summarise what AgentForge is in one paragraph suitable for a hackathon submission.',
-    budget: 0.30,
+    budget: 0.3,
   },
 
   // Comprehensive pipeline tasks
   {
     task: 'Research recent developments in crypto payments and write a report covering news, sentiment, and market implications.',
-    budget: 0.80,
+    budget: 0.8,
   },
   {
     task: 'Get the latest tech and AI news, perform a trend analysis, and produce a formatted weekly digest.',
-    budget: 0.80,
+    budget: 0.8,
   },
   {
     task: 'Fetch Stellar network statistics and recent XLM price data, analyse the correlation, and write a concise market brief.',
-    budget: 0.70,
+    budget: 0.7,
   },
   {
     task: 'What is the overall health of the Stellar network today? Include price, DEX volume, and network stats in your answer.',
-    budget: 0.50,
+    budget: 0.5,
   },
   {
     task: 'Gather the top 5 blockchain news stories, rate their market impact, and produce a risk assessment report.',
-    budget: 0.80,
+    budget: 0.8,
   },
   {
     task: 'Perform a comprehensive analysis of the current crypto market using Stellar oracle data and recent news, then write an investment briefing.',
-    budget: 1.00,
+    budget: 1.0,
   },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function healthCheck(): Promise<boolean> {
@@ -266,7 +270,7 @@ function connectWS(onReady: () => void): WebSocket {
 }
 
 function waitForTask(taskId: string): Promise<'complete' | 'error' | 'infeasible'> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     pending.set(taskId, { resolve, taskId, approved: false });
     // Safety timeout: resolve as error if nothing happens in 3 minutes
     const safety = setTimeout(() => {
@@ -279,7 +283,10 @@ function waitForTask(taskId: string): Promise<'complete' | 'error' | 'infeasible
     // Patch the resolve to also clear safety timer
     const tracker = pending.get(taskId)!;
     const orig = tracker.resolve;
-    tracker.resolve = (r) => { clearTimeout(safety); orig(r); };
+    tracker.resolve = (r) => {
+      clearTimeout(safety);
+      orig(r);
+    };
   });
 }
 
@@ -289,7 +296,9 @@ async function main() {
   console.log('');
   console.log('╔════════════════════════════════════════╗');
   console.log('║  AgentForge Bootstrap                  ║');
-  console.log(`║  ${TASKS.length} tasks · ${TASK_DELAY_MS / 1000}s gap · ${AUTO_APPROVE ? 'auto-approve' : `${APPROVAL_TIMEOUT_MS / 1000}s plan timeout`}    ║`);
+  console.log(
+    `║  ${TASKS.length} tasks · ${TASK_DELAY_MS / 1000}s gap · ${AUTO_APPROVE ? 'auto-approve' : `${APPROVAL_TIMEOUT_MS / 1000}s plan timeout`}    ║`,
+  );
   console.log('╚════════════════════════════════════════╝');
   console.log('');
 
@@ -357,7 +366,7 @@ async function main() {
   console.log('');
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('[bootstrap] Fatal:', err.message);
   process.exit(1);
 });

@@ -13,7 +13,7 @@ import { registerSelf } from './register.js';
 const PORT = parseInt(process.env.WEB_INTEL_PORT || process.env.PORT || '4002');
 const SECRET_KEY = process.env.WEB_INTEL_SECRET_KEY!;
 const FACILITATOR_URL = process.env.X402_FACILITATOR_URL || 'https://www.x402.org/facilitator';
-const NETWORK = process.env.STELLAR_NETWORK || 'stellar:testnet';
+const NETWORK = (process.env.STELLAR_NETWORK || 'stellar:testnet') as `${string}:${string}`;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
 if (!SECRET_KEY) {
@@ -28,8 +28,10 @@ const anthropic = ANTHROPIC_KEY ? new Anthropic({ apiKey: ANTHROPIC_KEY }) : nul
 
 // ── x402 setup ────────────────────────────────────────────────────
 const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
-const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register(NETWORK, new ExactStellarScheme());
+const resourceServer = new x402ResourceServer(facilitatorClient).register(
+  NETWORK,
+  new ExactStellarScheme(),
+);
 
 const app = express();
 app.use(cors());
@@ -44,7 +46,14 @@ app.get('/', (_req, res) => {
   res.json({
     agent: 'WebIntelligence',
     description: 'Real news across blockchain, tech, and AI from xlm402.com',
-    capabilities: ['news', 'web-search', 'web-scraping', 'information-retrieval', 'blockchain-news', 'tech-news'],
+    capabilities: [
+      'news',
+      'web-search',
+      'web-scraping',
+      'information-retrieval',
+      'blockchain-news',
+      'tech-news',
+    ],
     pricing: { model: 'x402', price_per_call: 0.02, currency: 'USDC' },
     stellar_address: PAY_TO,
   });
@@ -60,8 +69,10 @@ app.use(
       },
     },
     resourceServer,
-    undefined, undefined, true,
-  )
+    undefined,
+    undefined,
+    true,
+  ),
 );
 
 // ── Paid endpoint ─────────────────────────────────────────────────
@@ -71,16 +82,21 @@ app.post('/query', async (req, res) => {
     const q = query.toLowerCase();
 
     // Determine which news categories to fetch
-    const wantsBlockchain = q.includes('blockchain') || q.includes('crypto') || q.includes('stellar') || q.includes('xlm') || q === '';
+    const wantsBlockchain =
+      q.includes('blockchain') ||
+      q.includes('crypto') ||
+      q.includes('stellar') ||
+      q.includes('xlm') ||
+      q === '';
     const wantsTech = q.includes('tech') || q.includes('technology') || q === '';
     const wantsAI = q.includes('ai') || q.includes('artificial intelligence') || q === '';
     const wantsScrape = q.includes('scrape') || q.includes('extract') || q.includes('http');
 
     // Fetch relevant news categories in parallel
     const fetches: Promise<any>[] = [];
-    if (wantsBlockchain) fetches.push(getBlockchainNews().catch(e => ({ error: e.message })));
-    if (wantsTech) fetches.push(getTechNews().catch(e => ({ error: e.message })));
-    if (wantsAI) fetches.push(getAINews().catch(e => ({ error: e.message })));
+    if (wantsBlockchain) fetches.push(getBlockchainNews().catch((e) => ({ error: e.message })));
+    if (wantsTech) fetches.push(getTechNews().catch((e) => ({ error: e.message })));
+    if (wantsAI) fetches.push(getAINews().catch((e) => ({ error: e.message })));
 
     const newsResults = await Promise.all(fetches);
     const allArticles: any[] = [];
@@ -99,25 +115,39 @@ app.post('/query', async (req, res) => {
     if (wantsScrape) {
       const urlMatch = query.match(/https?:\/\/[^\s]+/);
       if (urlMatch) {
-        scraped = await scrapeUrl(urlMatch[0]).catch(e => ({ error: e.message }));
+        scraped = await scrapeUrl(urlMatch[0]).catch((e) => ({
+          data: null,
+          paid: false,
+          error: e.message,
+        }));
       }
     }
 
     // Use Claude to extract key points if available
     let summary = null;
     if (anthropic && allArticles.length > 0) {
-      const articlesText = allArticles.slice(0, 10).map((a: any) =>
-        `- ${a.title || a.headline || 'Untitled'}: ${a.description || a.summary || a.content || ''}`.slice(0, 200)
-      ).join('\n');
+      const articlesText = allArticles
+        .slice(0, 10)
+        .map((a: any) =>
+          `- ${a.title || a.headline || 'Untitled'}: ${a.description || a.summary || a.content || ''}`.slice(
+            0,
+            200,
+          ),
+        )
+        .join('\n');
 
-      const claudeRes = await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 400,
-        messages: [{
-          role: 'user',
-          content: `Extract 3-5 key insights from these news articles relevant to: "${query}"\n\n${articlesText}\n\nReturn a brief bullet-point summary.`,
-        }],
-      }).catch(() => null);
+      const claudeRes = await anthropic.messages
+        .create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 400,
+          messages: [
+            {
+              role: 'user',
+              content: `Extract 3-5 key insights from these news articles relevant to: "${query}"\n\n${articlesText}\n\nReturn a brief bullet-point summary.`,
+            },
+          ],
+        })
+        .catch(() => null);
 
       if (claudeRes?.content[0]?.type === 'text') {
         summary = claudeRes.content[0].text;

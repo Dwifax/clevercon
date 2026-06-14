@@ -15,15 +15,16 @@ export async function checkFeasibility(
   availableAgents: AgentRecord[],
 ): Promise<FeasibilityResult> {
   // All capabilities across registered agents
-  const allCapabilities = new Set(availableAgents.flatMap(a => a.capabilities));
+  const allCapabilities = new Set(availableAgents.flatMap((a) => a.capabilities));
 
   // Ask Claude what capabilities this task needs, anchored to known tags
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 200,
-    messages: [{
-      role: 'user',
-      content: `What capabilities does this task require? Return ONLY a JSON array of short capability tags (lowercase, hyphenated).
+    messages: [
+      {
+        role: 'user',
+        content: `What capabilities does this task require? Return ONLY a JSON array of short capability tags (lowercase, hyphenated).
 
 Known capability tags available: ${[...allCapabilities].join(', ')}
 
@@ -34,7 +35,8 @@ Instructions:
 - Always include at least one tag — never return an empty array
 - If the task needs something not in the known list, add the appropriate new tag
 Return only the JSON array, no explanation:`,
-    }],
+      },
+    ],
   });
 
   const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '[]';
@@ -50,15 +52,15 @@ Return only the JSON array, no explanation:`,
   // All capabilities across all registered agents (already computed above)
 
   // Fuzzy match: needed capability covered if any agent capability overlaps
-  const available = needed.filter(c =>
-    [...allCapabilities].some(ac =>
-      ac.toLowerCase().includes(c.toLowerCase()) ||
-      c.toLowerCase().includes(ac.toLowerCase())
-    )
+  const available = needed.filter((c) =>
+    [...allCapabilities].some(
+      (ac) =>
+        ac.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(ac.toLowerCase()),
+    ),
   );
-  const missing = needed.filter(c => !available.includes(c));
+  const missing = needed.filter((c) => !available.includes(c));
 
-  const feasible = needed.length === 0 || (available.length / needed.length) >= 0.7;
+  const feasible = needed.length === 0 || available.length / needed.length >= 0.7;
 
   return { feasible, needed, available, missing };
 }

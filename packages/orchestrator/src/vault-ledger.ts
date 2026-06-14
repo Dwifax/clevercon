@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 
 const __dirname = path.dirname(path.resolve(process.argv[1]));
-const DATA_DIR  = path.join(__dirname, '..', '..', '..', 'data');
+const DATA_DIR = path.join(__dirname, '..', '..', '..', 'data');
 const LEDGER_PATH = path.join(DATA_DIR, 'vault-ledger.json');
 
 export type VaultTxType = 'deposit' | 'withdrawal' | 'payment' | 'budget_lock';
@@ -16,10 +16,10 @@ export interface VaultLedgerEntry {
   id: string;
   user_address: string;
   type: VaultTxType;
-  amount_usdc: number;          // always positive; sign implied by type (deposit=credit, others=debit)
+  amount_usdc: number; // always positive; sign implied by type (deposit=credit, others=debit)
   tx_hash?: string;
   task_id?: string;
-  agent_name?: string;          // for payment entries
+  agent_name?: string; // for payment entries
   timestamp: string;
 }
 
@@ -66,7 +66,7 @@ export function appendVaultTx(entry: Omit<VaultLedgerEntry, 'id' | 'timestamp'>)
 export function getVaultLedger(userAddress: string, limit = 100): VaultLedgerEntry[] {
   const ledger = load();
   return ledger
-    .filter(e => e.user_address === userAddress)
+    .filter((e) => e.user_address === userAddress)
     .slice(-limit)
     .reverse();
 }

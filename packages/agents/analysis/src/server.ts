@@ -20,21 +20,25 @@ const keypair = Keypair.fromSecret(SECRET_KEY);
 const PAY_TO = keypair.publicKey();
 
 // ── MPP setup — lazy so a Soroban RPC hiccup at startup doesn't kill the process
-let _mppx: ReturnType<typeof Mppx.create> | null = null;
+function createMppx() {
+  return Mppx.create({
+    methods: [
+      stellar({
+        recipient: PAY_TO,
+        currency: USDC_SAC_TESTNET,
+        network: STELLAR_TESTNET,
+        rpcUrl: 'https://soroban-testnet.stellar.org',
+      }),
+    ],
+    secretKey: SECRET_KEY,
+    realm: 'clevercon-analysis',
+  });
+}
+
+let _mppx: ReturnType<typeof createMppx> | null = null;
 function getMppx() {
   if (!_mppx) {
-    _mppx = Mppx.create({
-      methods: [
-        stellar({
-          recipient: PAY_TO,
-          currency: USDC_SAC_TESTNET,
-          network: STELLAR_TESTNET,
-          rpcUrl: 'https://soroban-testnet.stellar.org',
-        }),
-      ],
-      secretKey: SECRET_KEY,
-      realm: 'clevercon-analysis',
-    });
+    _mppx = createMppx();
   }
   return _mppx;
 }
@@ -52,7 +56,13 @@ app.get('/', (_req, res) => {
   res.json({
     agent: 'AnalysisBot',
     description: 'Claude-powered trend analysis and risk assessment via MPP',
-    capabilities: ['data-analysis', 'comparison', 'trend-analysis', 'sentiment-analysis', 'risk-assessment'],
+    capabilities: [
+      'data-analysis',
+      'comparison',
+      'trend-analysis',
+      'sentiment-analysis',
+      'risk-assessment',
+    ],
     pricing: { model: 'mpp', price_per_call: 0.005, currency: 'USDC' },
     stellar_address: PAY_TO,
   });
@@ -68,7 +78,7 @@ app.post('/analyze', async (req, res) => {
   const fetchReq = new Request(url, {
     method: req.method,
     headers: Object.fromEntries(
-      Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? ''])
+      Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : (v ?? '')]),
     ),
     body: JSON.stringify(req.body),
   });
@@ -93,13 +103,22 @@ app.post('/analyze', async (req, res) => {
 
   // Payment verified — run Claude analysis then attach receipt
   try {
-    const { data = '', instruction = 'Analyze this data and identify key trends, risks, and insights.' } = req.body;
+    const {
+      data = '',
+      instruction = 'Analyze this data and identify key trends, risks, and insights.',
+    } = req.body;
     const analysis = await analyzeWithClaude(
       typeof data === 'string' ? data : JSON.stringify(data),
       instruction,
     );
-    const body = JSON.stringify({ result: analysis, agent: 'AnalysisBot', timestamp: new Date().toISOString() });
-    const receiptResult = result.withReceipt(new Response(body, { headers: { 'Content-Type': 'application/json' } }));
+    const body = JSON.stringify({
+      result: analysis,
+      agent: 'AnalysisBot',
+      timestamp: new Date().toISOString(),
+    });
+    const receiptResult = result.withReceipt(
+      new Response(body, { headers: { 'Content-Type': 'application/json' } }),
+    );
     const finalResponse = (receiptResult as any).response ?? receiptResult;
     if (finalResponse?.headers?.forEach) {
       finalResponse.headers.forEach((value: string, key: string) => res.setHeader(key, value));

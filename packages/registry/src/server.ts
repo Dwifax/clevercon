@@ -18,8 +18,17 @@ app.post('/register', (req, res) => {
   const body = req.body as Partial<AgentManifest> & { registered_by?: string };
 
   // Validate required fields
-  const required = ['agent_id', 'name', 'description', 'capabilities', 'pricing', 'endpoint', 'stellar_address', 'health_check'];
-  const missing = required.filter(f => !(f in body));
+  const required = [
+    'agent_id',
+    'name',
+    'description',
+    'capabilities',
+    'pricing',
+    'endpoint',
+    'stellar_address',
+    'health_check',
+  ];
+  const missing = required.filter((f) => !(f in body));
   if (missing.length > 0) {
     return res.status(400).json({ error: `Missing fields: ${missing.join(', ')}` });
   }
@@ -57,21 +66,21 @@ app.get('/agents', (req, res) => {
   const { capabilities, min_reputation, payment_model, status } = req.query;
 
   if (capabilities) {
-    const caps = (capabilities as string).split(',').map(c => c.trim());
+    const caps = (capabilities as string).split(',').map((c) => c.trim());
     agents = matchCapabilities(agents, caps);
   }
 
   if (min_reputation) {
     const minRep = parseFloat(min_reputation as string);
-    agents = agents.filter(a => a.reputation.score >= minRep);
+    agents = agents.filter((a) => a.reputation.score >= minRep);
   }
 
   if (payment_model) {
-    agents = agents.filter(a => a.pricing.model === payment_model);
+    agents = agents.filter((a) => a.pricing.model === payment_model);
   }
 
   if (status) {
-    agents = agents.filter(a => a.status === status);
+    agents = agents.filter((a) => a.status === status);
   }
 
   return res.json(agents);
@@ -88,7 +97,7 @@ app.get('/agents/:id', (req, res) => {
 app.post('/feedback', (req, res) => {
   const body = req.body as Partial<AgentFeedback>;
   const required = ['agent_id', 'job_id', 'success', 'quality_rating', 'latency_ms', 'timestamp'];
-  const missing = required.filter(f => !(f in body));
+  const missing = required.filter((f) => !(f in body));
   if (missing.length > 0) {
     return res.status(400).json({ error: `Missing fields: ${missing.join(', ')}` });
   }
@@ -100,15 +109,19 @@ app.post('/feedback', (req, res) => {
   updated.last_seen = new Date().toISOString();
   upsertAgent(updated);
 
-  logger.info(`Feedback recorded for ${agent.name}: success=${body.success}, quality=${body.quality_rating}`);
+  logger.info(
+    `Feedback recorded for ${agent.name}: success=${body.success}, quality=${body.quality_rating}`,
+  );
   return res.json(updated);
 });
 
 /** Returns true if requester is authorised to modify this agent.
  *  Authorised = agent's own stellar_address OR the user who registered it (registered_by). */
 function isAuthorised(agent: AgentRecord, requester_address: string): boolean {
-  return requester_address === agent.stellar_address ||
-         (!!agent.registered_by && requester_address === agent.registered_by);
+  return (
+    requester_address === agent.stellar_address ||
+    (!!agent.registered_by && requester_address === agent.registered_by)
+  );
 }
 
 // PATCH /agents/:id — update mutable fields (name, description)
@@ -117,13 +130,17 @@ app.patch('/agents/:id', (req, res) => {
   const agent = findAgent(req.params.id);
   if (!agent) return res.status(404).json({ error: 'Agent not found' });
   const { name, description, requester_address } = req.body as {
-    name?: string; description?: string; requester_address?: string;
+    name?: string;
+    description?: string;
+    requester_address?: string;
   };
   if (!requester_address) {
     return res.status(400).json({ error: 'requester_address is required' });
   }
   if (!isAuthorised(agent, requester_address)) {
-    return res.status(403).json({ error: 'Not authorised: requester_address does not match agent owner or registrant' });
+    return res.status(403).json({
+      error: 'Not authorised: requester_address does not match agent owner or registrant',
+    });
   }
   if (name !== undefined) {
     if (!name.trim()) return res.status(400).json({ error: 'name cannot be empty' });
@@ -147,7 +164,9 @@ app.delete('/agents/:id', (req, res) => {
     return res.status(400).json({ error: 'requester_address is required' });
   }
   if (!isAuthorised(agent, requester_address)) {
-    return res.status(403).json({ error: 'Not authorised: requester_address does not match agent owner or registrant' });
+    return res.status(403).json({
+      error: 'Not authorised: requester_address does not match agent owner or registrant',
+    });
   }
   const removed = removeAgent(req.params.id);
   if (!removed) return res.status(404).json({ error: 'Agent not found' });
@@ -168,7 +187,7 @@ app.get('/health', (_req, res) => {
 // GET /.well-known/x402 — machine-readable marketplace metadata
 app.get('/.well-known/x402', (_req, res) => {
   const agents = loadAgents();
-  const services = agents.map(a => ({
+  const services = agents.map((a) => ({
     agent_id: a.agent_id,
     name: a.name,
     description: a.description,

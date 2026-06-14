@@ -13,8 +13,15 @@ export async function registerSelf(): Promise<void> {
   const manifest = {
     agent_id: 'reporter-agent',
     name: 'ReporterBot',
-    description: 'Claude-powered report formatter. Converts raw data and analysis into structured, human-readable reports.',
-    capabilities: ['report-generation', 'formatting', 'summarization', 'markdown-reports', 'executive-summary'],
+    description:
+      'Claude-powered report formatter. Converts raw data and analysis into structured, human-readable reports.',
+    capabilities: [
+      'report-generation',
+      'formatting',
+      'summarization',
+      'markdown-reports',
+      'executive-summary',
+    ],
     pricing: { model: 'x402', price_per_call: 0.02, currency: 'USDC' },
     endpoint: `${SELF_URL}/report`,
     stellar_address: keypair.publicKey(),

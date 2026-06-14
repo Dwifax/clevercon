@@ -16,8 +16,7 @@
 import { Keypair, TransactionBuilder } from '@stellar/stellar-sdk';
 
 const SPONSOR_URL =
-  process.env.SPONSOR_SERVICE_URL ||
-  'https://stellar-sponsored-agent-account.onrender.com';
+  process.env.SPONSOR_SERVICE_URL || 'https://stellar-sponsored-agent-account.onrender.com';
 
 export interface ProvisionedWallet {
   publicKey: string;
@@ -50,7 +49,7 @@ export async function provisionAgentWallet(): Promise<ProvisionedWallet> {
   const tx = TransactionBuilder.fromXDR(xdr, network_passphrase);
   if (tx.operations.length !== 4) {
     throw new Error(
-      `Unexpected operation count: ${tx.operations.length} (expected 4). Refusing to sign.`
+      `Unexpected operation count: ${tx.operations.length} (expected 4). Refusing to sign.`,
     );
   }
 
@@ -76,8 +75,7 @@ export async function provisionAgentWallet(): Promise<ProvisionedWallet> {
     publicKey: kp.publicKey(),
     secretKey: kp.secret(),
     explorerUrl:
-      result.explorer_url ||
-      `https://stellar.expert/explorer/testnet/account/${kp.publicKey()}`,
+      result.explorer_url || `https://stellar.expert/explorer/testnet/account/${kp.publicKey()}`,
     txHash: result.hash || result.tx_hash || '',
   };
 }

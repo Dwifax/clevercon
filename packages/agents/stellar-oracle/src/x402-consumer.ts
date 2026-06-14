@@ -7,7 +7,7 @@ import { createEd25519Signer } from '@x402/stellar';
 import { ExactStellarScheme } from '@x402/stellar/exact/client';
 
 const SECRET_KEY = process.env.STELLAR_ORACLE_SECRET_KEY!;
-const NETWORK = process.env.STELLAR_NETWORK || 'stellar:testnet';
+const NETWORK = (process.env.STELLAR_NETWORK || 'stellar:testnet') as `${string}:${string}`;
 const XLM402_BASE = process.env.XLM402_BASE_URL || 'https://xlm402.com';
 
 // Build an x402-aware fetch using the Oracle's own wallet

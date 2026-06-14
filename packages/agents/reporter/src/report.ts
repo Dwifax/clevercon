@@ -25,7 +25,8 @@ export async function generateReport(input: ReportInput | string): Promise<strin
 
   if (typeof input === 'string') {
     // Detect if all upstream steps failed — refuse to invent content
-    const allFailed = input.trim().length === 0 ||
+    const allFailed =
+      input.trim().length === 0 ||
       (input.includes('[Step') && input.includes('failed:') && !input.match(/[A-Z].*\n/));
 
     if (allFailed || input.trim().length === 0) {
@@ -48,9 +49,7 @@ Requirements:
 
 Produce a well-formatted markdown report now:`;
   } else {
-    const sectionsText = input.sections
-      .map(s => `## ${s.title}\n${s.content}`)
-      .join('\n\n');
+    const sectionsText = input.sections.map((s) => `## ${s.title}\n${s.content}`).join('\n\n');
 
     prompt = `You are a professional report writer. Compile the following sections into a polished ${input.title} report.
 
@@ -72,5 +71,7 @@ Produce the final formatted report now:`;
     messages: [{ role: 'user', content: prompt }],
   });
 
-  return response.content[0].type === 'text' ? response.content[0].text : 'Report generation unavailable';
+  return response.content[0].type === 'text'
+    ? response.content[0].text
+    : 'Report generation unavailable';
 }

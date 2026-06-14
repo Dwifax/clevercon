@@ -23,18 +23,19 @@ import {
 } from '@stellar/stellar-sdk';
 
 const CONTRACT_ID = process.env.BUDGET_CONTRACT_ID ?? '';
-const SECRET_KEY  = process.env.ORCHESTRATOR_SECRET_KEY!;
-const RPC_URL     = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org';
+const SECRET_KEY = process.env.ORCHESTRATOR_SECRET_KEY!;
+const RPC_URL = process.env.STELLAR_RPC_URL || 'https://soroban-testnet.stellar.org';
 const NETWORK_PASSPHRASE = Networks.TESTNET;
 
 const STROOPS_PER_USDC = 10_000_000n;
 
 // Detect placeholder value — .env ships with BUDGET_CONTRACT_ID=C...
-const CONTRACT_ACTIVE =
-  CONTRACT_ID.length > 10 && !CONTRACT_ID.startsWith('C...');
+const CONTRACT_ACTIVE = CONTRACT_ID.length > 10 && !CONTRACT_ID.startsWith('C...');
 
 if (!CONTRACT_ACTIVE) {
-  console.warn('[BudgetContract] BUDGET_CONTRACT_ID not set — running without on-chain budget enforcement');
+  console.warn(
+    '[BudgetContract] BUDGET_CONTRACT_ID not set — running without on-chain budget enforcement',
+  );
 }
 
 // ── Soroban helpers ───────────────────────────────────────────────────────────
@@ -49,7 +50,7 @@ function stroopsToUsdc(stroops: bigint): number {
 
 async function invokeContract(method: string, args: any[]): Promise<any> {
   const keypair = Keypair.fromSecret(SECRET_KEY);
-  const rpc     = new SorobanRpc.Server(RPC_URL, { allowHttp: false });
+  const rpc = new SorobanRpc.Server(RPC_URL, { allowHttp: false });
   const contract = new Contract(CONTRACT_ID);
 
   const account = await rpc.getAccount(keypair.publicKey());
@@ -79,7 +80,7 @@ async function invokeContract(method: string, args: any[]): Promise<any> {
   // Poll for confirmation
   const hash = response.hash;
   for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000));
     const result = await rpc.getTransaction(hash);
     if (result.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
       return result.returnValue ? scValToNative(result.returnValue) : undefined;
@@ -120,10 +121,7 @@ export async function createTaskBudget(budgetUsdc: number): Promise<number | nul
  * Returns true if approved, false if denied (over budget).
  * Returns true (permissive) if contract is inactive.
  */
-export async function approveSpend(
-  taskId: number,
-  amountUsdc: number,
-): Promise<boolean> {
+export async function approveSpend(taskId: number, amountUsdc: number): Promise<boolean> {
   if (!CONTRACT_ACTIVE || taskId === null) return true;
   try {
     const keypair = Keypair.fromSecret(SECRET_KEY);
@@ -187,15 +185,13 @@ export async function getTask(taskId: number | null): Promise<{
 } | null> {
   if (!CONTRACT_ACTIVE || taskId === null) return null;
   try {
-    const raw = await invokeContract('get_task', [
-      nativeToScVal(BigInt(taskId), { type: 'u64' }),
-    ]);
+    const raw = await invokeContract('get_task', [nativeToScVal(BigInt(taskId), { type: 'u64' })]);
     return {
-      budget:       stroopsToUsdc(BigInt(raw.budget)),
-      spent:        stroopsToUsdc(BigInt(raw.spent)),
-      remaining:    stroopsToUsdc(BigInt(raw.budget) - BigInt(raw.spent)),
+      budget: stroopsToUsdc(BigInt(raw.budget)),
+      spent: stroopsToUsdc(BigInt(raw.spent)),
+      remaining: stroopsToUsdc(BigInt(raw.budget) - BigInt(raw.spent)),
       num_payments: Number(raw.num_payments),
-      completed:    Boolean(raw.completed),
+      completed: Boolean(raw.completed),
     };
   } catch (err: any) {
     console.error('[BudgetContract] getTask error:', err.message);

@@ -43,7 +43,7 @@ async function main() {
     console.log(`  Public Key : ${kp.publicKey()}`);
     await friendbotFund(kp.publicKey());
     // Small delay to avoid rate limits
-    await new Promise(r => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, 1200));
   }
 
   // Save wallets.json (gitignored)

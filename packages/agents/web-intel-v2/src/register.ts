@@ -13,7 +13,8 @@ export async function registerSelf(): Promise<void> {
   const manifest = {
     agent_id: 'web-intel-v2',
     name: 'WebIntelligenceV2',
-    description: 'Fetches blockchain news from xlm402.com. Simpler and cheaper than v1 — raw data, no post-processing.',
+    description:
+      'Fetches blockchain news from xlm402.com. Simpler and cheaper than v1 — raw data, no post-processing.',
     capabilities: ['news', 'web-search', 'blockchain-news'],
     pricing: { model: 'x402', price_per_call: 0.015, currency: 'USDC' },
     endpoint: `${SELF_URL}/query`,

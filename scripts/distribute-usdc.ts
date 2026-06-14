@@ -25,18 +25,18 @@ const server = new Horizon.Server(HORIZON_URL);
 // How much USDC to send to each agent
 // Agents that call xlm402.com need more; reporter/analysis just receive payments
 const DISTRIBUTION: Record<string, string> = {
-  'stellar-oracle': '3',   // pays xlm402.com for market data (~$0.01/call)
-  'web-intel':      '3',   // pays xlm402.com for news/scrape (~$0.01-0.03/call)
-  'web-intel-v2':   '2',   // pays xlm402.com for news
-  'analysis':       '1',   // receives MPP payments, minimal outgoing
-  'reporter':       '1',   // receives x402 payments, no outgoing
+  'stellar-oracle': '3', // pays xlm402.com for market data (~$0.01/call)
+  'web-intel': '3', // pays xlm402.com for news/scrape (~$0.01-0.03/call)
+  'web-intel-v2': '2', // pays xlm402.com for news
+  analysis: '1', // receives MPP payments, minimal outgoing
+  reporter: '1', // receives x402 payments, no outgoing
 };
 
 async function sendUSDC(
   senderKeypair: Keypair,
   destinationPublicKey: string,
   amount: string,
-  label: string
+  label: string,
 ): Promise<void> {
   const account = await server.loadAccount(senderKeypair.publicKey());
 
@@ -49,7 +49,7 @@ async function sendUSDC(
         destination: destinationPublicKey,
         asset: USDC,
         amount,
-      })
+      }),
     )
     .addMemo(Memo.text(`AgentForge: ${label}`))
     .setTimeout(30)
@@ -64,7 +64,7 @@ async function getUSDCBalance(publicKey: string): Promise<string> {
   try {
     const account = await server.loadAccount(publicKey);
     const usdc = account.balances.find(
-      (b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER
+      (b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER,
     ) as any;
     return usdc?.balance || '0';
   } catch {
@@ -97,7 +97,7 @@ async function main() {
       continue;
     }
     await sendUSDC(orchestratorKeypair, wallets[name].publicKey, amount, name);
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 800));
   }
 
   console.log('\nFinal balances:');

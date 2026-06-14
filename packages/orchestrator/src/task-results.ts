@@ -8,13 +8,13 @@ import path from 'path';
 import type { TaskResult } from '@clevercon/common';
 
 const __dirname = path.dirname(path.resolve(process.argv[1]));
-const DATA_DIR   = path.join(__dirname, '..', '..', '..', 'data');
+const DATA_DIR = path.join(__dirname, '..', '..', '..', 'data');
 const RESULTS_PATH = path.join(DATA_DIR, 'task-results.json');
 
 export interface TaskResultEntry {
   task_id: string;
   user_address: string;
-  prompt: string;                  // original user input (truncated to 500 chars on save)
+  prompt: string; // original user input (truncated to 500 chars on save)
   status: 'complete' | 'partial' | 'failed';
   total_cost: number;
   total_time_ms: number;
@@ -41,15 +41,19 @@ function load(): Store {
 
 function save(store: Store): void {
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  const trimmed = store.slice(-500);           // cap at 500 entries
+  const trimmed = store.slice(-500); // cap at 500 entries
   fs.writeFileSync(RESULTS_PATH, JSON.stringify(trimmed, null, 2), 'utf8');
   cache = trimmed;
 }
 
-export function saveTaskResult(userAddress: string, prompt: string, result: TaskResult): TaskResultEntry {
+export function saveTaskResult(
+  userAddress: string,
+  prompt: string,
+  result: TaskResult,
+): TaskResultEntry {
   const store = load();
   // Overwrite if task_id already exists (idempotent)
-  const existing = store.findIndex(e => e.task_id === result.task_id);
+  const existing = store.findIndex((e) => e.task_id === result.task_id);
   const entry: TaskResultEntry = {
     task_id: result.task_id,
     user_address: userAddress,
@@ -73,7 +77,7 @@ export function saveTaskResult(userAddress: string, prompt: string, result: Task
 export function getTaskResults(userAddress: string, limit = 50): TaskResultEntry[] {
   const store = load();
   return store
-    .filter(e => e.user_address === userAddress)
+    .filter((e) => e.user_address === userAddress)
     .slice(-limit)
     .reverse();
 }
@@ -81,7 +85,7 @@ export function getTaskResults(userAddress: string, limit = 50): TaskResultEntry
 export function deleteTaskResult(taskId: string): boolean {
   const store = load();
   const before = store.length;
-  save(store.filter(e => e.task_id !== taskId));
+  save(store.filter((e) => e.task_id !== taskId));
   return store.length !== before;
 }
 
