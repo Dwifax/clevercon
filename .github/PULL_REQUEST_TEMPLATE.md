@@ -24,5 +24,4 @@ useful (e.g. `cargo test`, `npm test`, manual testnet transaction links).
 - [ ] If a contract changed: `cargo fmt --check`, `cargo clippy`, `cargo test`
       pass in `contracts/<contract>`
 - [ ] Docs updated if behavior, setup, or APIs changed
-- [ ] No changes to `packages/dashboard` (or, if there are, they're
-      incidental and explained above)
+

@@ -1,6 +1,6 @@
 ---
 name: Contributor task
-about: A scoped, bounty-eligible task for community contributors
+about: A scoped task for community contributors
 title: "[Task]: "
 labels: ''
 ---
@@ -11,8 +11,8 @@ One or two sentences describing the task.
 
 ## Context
 
-Why this matters and how it fits into [ROADMAP.md](../../ROADMAP.md). Link to
-the relevant package or contract.
+Why this matters and how it fits into the project. Link to the relevant
+package or contract.
 
 ## Acceptance criteria
 
@@ -26,20 +26,7 @@ the relevant package or contract.
 
 ## Difficulty
 
-<!-- good first issue | medium | hard | strategic -->
-
-## Bounty
-
-This task is funded via [GrantFox](https://grantfox.xyz).
-
-- Amount: $
-- Payout: on merge of a PR that satisfies the acceptance criteria above
-
-## Roadmap phase
-
-<!-- Phase 1: CleverVault hardening | Phase 2: On-chain registry |
-     Phase 3: MCP server & Agent SDK | Phase 4: Ecosystem & multi-provider |
-     Phase 5: Mainnet -->
+<!-- good first issue | medium | hard -->
 
 ## Notes for contributors
 
