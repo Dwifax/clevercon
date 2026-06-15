@@ -43,12 +43,17 @@ clevercon/
    npx tsx scripts/add-usdc-trustlines.ts
    ```
 
-5. Fund the **orchestrator** with testnet USDC. Open
-   [https://faucet.circle.com](https://faucet.circle.com), select
-   **Stellar Testnet**, and paste the orchestrator's public key (shown in the
-   `setup-wallets.ts` output). Click the faucet button **2-3 times** (each
-   gives 10 USDC; the orchestrator needs ~15 USDC to distribute to agents and
-   cover task payments).
+5. Fund the orchestrator with testnet USDC (swap XLM → USDC via testnet DEX):
+
+   ```bash
+   npx tsx scripts/fund-testnet-usdc.ts
+   ```
+
+   The orchestrator receives 9999 XLM from Stellar friendbot during wallet
+   setup; this script swaps ~15 XLM → 15 USDC via the testnet DEX. No browser
+   required. If the DEX has no liquidity (rare), fall back to
+   [https://faucet.circle.com](https://faucet.circle.com) (Stellar Testnet,
+   paste orchestrator address).
 
 6. Distribute USDC from the orchestrator to each agent wallet:
 

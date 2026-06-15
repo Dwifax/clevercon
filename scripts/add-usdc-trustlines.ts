@@ -68,12 +68,10 @@ async function main() {
     await addTrustline(name, w.secretKey);
     await new Promise((r) => setTimeout(r, 500));
   }
-  console.log('\nDone! Now fund each wallet with USDC at https://faucet.circle.com');
-  console.log('Select "Stellar Testnet" and paste each public key:');
-  for (const [name, w] of Object.entries(wallets) as [string, any][]) {
-    console.log(`  [${name}] ${w.publicKey}`);
-  }
-  console.log('\nFor the orchestrator, repeat the faucet 2-3 times (needs most USDC).');
+  console.log('\nDone! Run next: npx tsx scripts/fund-testnet-usdc.ts');
+  console.log('(swaps XLM → USDC via testnet DEX so the orchestrator can pay agents)');
+  console.log('\nOrchestrator public key (for manual Circle faucet fallback):');
+  console.log(`  ${(wallets['orchestrator'] as any)?.publicKey ?? '(not found)'}`);
 }
 
 main().catch(console.error);

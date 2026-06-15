@@ -98,7 +98,7 @@ cp .env.example .env
 npx tsx scripts/setup-wallets.ts         # generates keypairs, prints *_SECRET_KEY lines
 # ↑ copy the printed *_SECRET_KEY=S... lines into your .env before continuing
 npx tsx scripts/add-usdc-trustlines.ts   # add USDC trustlines to every wallet
-# ↑ fund orchestrator with testnet USDC at https://faucet.circle.com (2-3 clicks)
+npx tsx scripts/fund-testnet-usdc.ts     # swap XLM → USDC via testnet DEX (no browser needed)
 npx tsx scripts/distribute-usdc.ts       # distribute USDC to agent wallets
 ```
 

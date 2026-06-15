@@ -116,9 +116,13 @@ async function addUsdcTrustline(signerKeypair: Keypair): Promise<void> {
 /**
  * Request testnet USDC from the Circle testnet faucet.
  * This is a best-effort call — if the faucet is unavailable we just log and continue.
+ *
+ * NOTE: Circle's faucet UI lives at https://faucet.circle.com — there is no stable
+ * public JSON API. This function attempts the call anyway and parses the response;
+ * if it returns HTML (the Next.js frontend) or any non-JSON body, we log a manual
+ * funding reminder instead of a misleading success message.
  */
 async function requestTestnetUsdc(address: string): Promise<void> {
-  // Circle's testnet USDC faucet
   const FAUCET_URL = 'https://faucet.circle.com/api/faucet/testnet';
   try {
     const res = await fetch(FAUCET_URL, {
@@ -127,13 +131,27 @@ async function requestTestnetUsdc(address: string): Promise<void> {
       body: JSON.stringify({ address, blockchain: 'STELLAR', amount: '10' }),
       signal: AbortSignal.timeout(15000),
     });
-    if (res.ok) {
+    const text = await res.text().catch(() => '');
+    // Only treat it as success if the response looks like JSON with a success indicator.
+    // The faucet site sometimes returns 200 HTML (Next.js page) which is a false positive.
+    let succeeded = false;
+    if (res.ok && text.trimStart().startsWith('{')) {
+      try {
+        const json = JSON.parse(text) as Record<string, unknown>;
+        succeeded = json['success'] === true || json['status'] === 'ok' || json['txHash'] != null;
+      } catch {
+        // not valid JSON
+      }
+    }
+    if (succeeded) {
       console.log(
         `[Orchestrator] Circle faucet: requested 10 testnet USDC for ${address.slice(0, 8)}…`,
       );
     } else {
-      const text = await res.text().catch(() => '');
-      console.warn(`[Orchestrator] Circle faucet returned ${res.status}: ${text.slice(0, 100)}`);
+      console.warn(
+        `[Orchestrator] Circle faucet auto-request did not confirm. ` +
+          `Fund the orchestrator manually: https://faucet.circle.com → Stellar Testnet → paste ${address}`,
+      );
     }
   } catch (err: any) {
     console.warn(`[Orchestrator] Circle faucet unavailable: ${err.message}`);
