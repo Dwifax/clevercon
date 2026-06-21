@@ -16,7 +16,7 @@ use soroban_sdk::{
     contract, contractevent, contractimpl, contracttype, log, token, Address, Env, String,
 };
 
-// ── Events ────────────────────────────────────────────────────────────────────
+// ── Events ──────────────────────────────────────────────────────────────
 
 #[contractevent]
 pub struct DepositEvent {
@@ -71,7 +71,7 @@ pub struct TaskDoneEvent {
     pub refund: i128,
 }
 
-// ── Storage keys ──────────────────────────────────────────────────────────────
+// ── Storage keys ────────────────────────────────────────────────────────
 
 /// Storage keys for all persistent and instance data in this contract.
 #[contracttype]
@@ -90,7 +90,7 @@ pub enum DataKey {
     OrchestratorOwner(Address),
 }
 
-// ── Data structs ──────────────────────────────────────────────────────────────
+// ── Data structs ────────────────────────────────────────────────────────
 
 /// Per-user account state. Created on first deposit or register_orchestrator.
 #[contracttype]
@@ -132,12 +132,32 @@ pub struct TaskInfo {
     pub created_at: u64,
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Constants ───────────────────────────────────────────────────────────
 
 /// Tasks older than this that haven't completed can be force-finalized by anyone.
 const STALE_TASK_THRESHOLD_SECONDS: u64 = 1800; // 30 minutes
 
-// ── Contract ──────────────────────────────────────────────────────────────────
+/// TTL extension threshold and target, in ledgers, for persistent storage
+/// entries (`DataKey::User`, `DataKey::Task`, `DataKey::OrchestratorOwner`).
+///
+/// `PERSISTENT_TTL_THRESHOLD`: extend when the entry's remaining TTL drops
+/// below this many ledgers (~1 day at 5s/ledger).
+/// `PERSISTENT_TTL_EXTEND_TO`: extend the entry's TTL to this many ledgers
+/// from now (~30 days at 5s/ledger) when the threshold is crossed.
+///
+/// These mirror the constants used elsewhere in the GrantFox ecosystem
+/// (see Nodus-Protocol-Smart-Contract's TTL_BUMP_THRESHOLD/TTL_BUMP_AMOUNT)
+/// for consistency across contracts maintained by the same campaign.
+const PERSISTENT_TTL_THRESHOLD: u32 = 17_280; // ~1 day
+const PERSISTENT_TTL_EXTEND_TO: u32 = 518_400; // ~30 days
+
+/// TTL extension threshold and target, in ledgers, for instance storage
+/// (`Admin`, `UsdcSac`, `TaskCounter` all share the contract's single
+/// instance TTL).
+const INSTANCE_TTL_THRESHOLD: u32 = 17_280; // ~1 day
+const INSTANCE_TTL_EXTEND_TO: u32 = 518_400; // ~30 days
+
+// ── Contract ────────────────────────────────────────────────────────────
 
 /// The CleverVault contract — a trustless treasury that holds USDC on behalf of
 /// users and releases per-step payments to their registered orchestrators.
@@ -146,7 +166,7 @@ pub struct AgentVault;
 
 #[contractimpl]
 impl AgentVault {
-    // ── Initialisation ────────────────────────────────────────────────────────
+    // ── Initialisation ──────────────────────────────────────────────────
 
     /// One-time init — sets admin and USDC SAC address. Panics if called twice.
     pub fn init(env: Env, admin: Address, usdc_sac: Address) {
@@ -157,6 +177,7 @@ impl AgentVault {
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::UsdcSac, &usdc_sac);
         env.storage().instance().set(&DataKey::TaskCounter, &0u64);
+        Self::extend_instance_ttl(&env);
         log!(
             &env,
             "AgentVault initialized admin={} usdc_sac={}",
@@ -165,7 +186,7 @@ impl AgentVault {
         );
     }
 
-    // ── Deposits & Withdrawals ────────────────────────────────────────────────
+    // ── Deposits & Withdrawals ──────────────────────────────────────────
 
     /// Deposit USDC from user's external wallet into their vault balance.
     /// Creates the user account on first deposit.
@@ -174,6 +195,7 @@ impl AgentVault {
         assert!(amount > 0, "Deposit must be positive");
 
         let usdc_sac: Address = env.storage().instance().get(&DataKey::UsdcSac).unwrap();
+        Self::extend_instance_ttl(&env);
         let usdc = token::Client::new(&env, &usdc_sac);
         // Transfer USDC from user → contract. User must have approved this.
         usdc.transfer(&user, env.current_contract_address(), &amount);
@@ -181,9 +203,9 @@ impl AgentVault {
         let mut account = Self::get_or_create_account(&env, &user);
         account.balance += amount;
         account.total_deposited += amount;
-        env.storage()
-            .persistent()
-            .set(&DataKey::User(user.clone()), &account);
+        let key = DataKey::User(user.clone());
+        env.storage().persistent().set(&key, &account);
+        Self::extend_persistent_ttl(&env, &key);
 
         DepositEvent {
             user: user.clone(),
@@ -205,11 +227,13 @@ impl AgentVault {
         user.require_auth();
         assert!(amount > 0, "Withdrawal must be positive");
 
+        let user_key = DataKey::User(user.clone());
         let mut account: UserAccount = env
             .storage()
             .persistent()
-            .get(&DataKey::User(user.clone()))
+            .get(&user_key)
             .expect("No account");
+        Self::extend_persistent_ttl(&env, &user_key);
 
         assert!(
             account.active_tasks_count == 0,
@@ -218,13 +242,13 @@ impl AgentVault {
         assert!(account.balance >= amount, "Insufficient balance");
 
         let usdc_sac: Address = env.storage().instance().get(&DataKey::UsdcSac).unwrap();
+        Self::extend_instance_ttl(&env);
         let usdc = token::Client::new(&env, &usdc_sac);
         usdc.transfer(&env.current_contract_address(), &user, &amount);
 
         account.balance -= amount;
-        env.storage()
-            .persistent()
-            .set(&DataKey::User(user.clone()), &account);
+        env.storage().persistent().set(&user_key, &account);
+        Self::extend_persistent_ttl(&env, &user_key);
 
         WithdrawEvent {
             user: user.clone(),
@@ -240,7 +264,7 @@ impl AgentVault {
         );
     }
 
-    // ── Orchestrator registration ─────────────────────────────────────────────
+    // ── Orchestrator registration ───────────────────────────────────────
 
     /// Register a personal orchestrator for this user. ONE-TIME per user.
     /// The user signs this transaction — the orchestrator address is stored on-chain.
@@ -256,14 +280,14 @@ impl AgentVault {
 
         account.orchestrator = Some(orchestrator.clone());
         account.orchestrator_name = name.clone();
-        env.storage()
-            .persistent()
-            .set(&DataKey::User(user.clone()), &account);
+        let user_key = DataKey::User(user.clone());
+        env.storage().persistent().set(&user_key, &account);
+        Self::extend_persistent_ttl(&env, &user_key);
 
         // Reverse lookup: orchestrator address → user address
-        env.storage()
-            .persistent()
-            .set(&DataKey::OrchestratorOwner(orchestrator.clone()), &user);
+        let owner_key = DataKey::OrchestratorOwner(orchestrator.clone());
+        env.storage().persistent().set(&owner_key, &user);
+        Self::extend_persistent_ttl(&env, &owner_key);
 
         RegOrchEvent {
             user: user.clone(),
@@ -278,7 +302,7 @@ impl AgentVault {
         );
     }
 
-    // ── Task lifecycle ────────────────────────────────────────────────────────
+    // ── Task lifecycle ──────────────────────────────────────────────────
 
     /// Orchestrator creates a task, locking plan_cost from user's available balance.
     /// Returns the new task_id. Only one active task per user at a time.
@@ -287,17 +311,21 @@ impl AgentVault {
         assert!(plan_cost > 0, "Plan cost must be positive");
 
         // Resolve orchestrator → user
+        let owner_key = DataKey::OrchestratorOwner(orchestrator.clone());
         let user: Address = env
             .storage()
             .persistent()
-            .get(&DataKey::OrchestratorOwner(orchestrator.clone()))
+            .get(&owner_key)
             .expect("Orchestrator not registered");
+        Self::extend_persistent_ttl(&env, &owner_key);
 
+        let user_key = DataKey::User(user.clone());
         let mut account: UserAccount = env
             .storage()
             .persistent()
-            .get(&DataKey::User(user.clone()))
+            .get(&user_key)
             .expect("User account not found");
+        Self::extend_persistent_ttl(&env, &user_key);
 
         assert!(
             account.active_tasks_count == 0,
@@ -309,15 +337,15 @@ impl AgentVault {
 
         account.locked += plan_cost;
         account.active_tasks_count += 1;
-        env.storage()
-            .persistent()
-            .set(&DataKey::User(user.clone()), &account);
+        env.storage().persistent().set(&user_key, &account);
+        Self::extend_persistent_ttl(&env, &user_key);
 
         let mut counter: u64 = env
             .storage()
             .instance()
             .get(&DataKey::TaskCounter)
             .unwrap_or(0);
+        Self::extend_instance_ttl(&env);
         counter += 1;
 
         let task = TaskInfo {
@@ -328,12 +356,14 @@ impl AgentVault {
             completed: false,
             created_at: env.ledger().timestamp(),
         };
-        env.storage()
-            .persistent()
-            .set(&DataKey::Task(counter), &task);
+        let task_key = DataKey::Task(counter);
+        env.storage().persistent().set(&task_key, &task);
+        Self::extend_persistent_ttl(&env, &task_key);
+
         env.storage()
             .instance()
             .set(&DataKey::TaskCounter, &counter);
+        Self::extend_instance_ttl(&env);
 
         TaskNewEvent {
             user: user.clone(),
@@ -360,11 +390,13 @@ impl AgentVault {
         orchestrator.require_auth();
         assert!(amount > 0, "Amount must be positive");
 
+        let task_key = DataKey::Task(task_id);
         let mut task: TaskInfo = env
             .storage()
             .persistent()
-            .get(&DataKey::Task(task_id))
+            .get(&task_key)
             .expect("Task not found");
+        Self::extend_persistent_ttl(&env, &task_key);
 
         assert!(!task.completed, "Task already completed");
         assert!(
@@ -375,13 +407,13 @@ impl AgentVault {
 
         // Transfer USDC: contract → orchestrator wallet (NOT directly to agent)
         let usdc_sac: Address = env.storage().instance().get(&DataKey::UsdcSac).unwrap();
+        Self::extend_instance_ttl(&env);
         let usdc = token::Client::new(&env, &usdc_sac);
         usdc.transfer(&env.current_contract_address(), &orchestrator, &amount);
 
         task.spent += amount;
-        env.storage()
-            .persistent()
-            .set(&DataKey::Task(task_id), &task);
+        env.storage().persistent().set(&task_key, &task);
+        Self::extend_persistent_ttl(&env, &task_key);
 
         ReleaseEvent {
             user: task.user.clone(),
@@ -413,11 +445,13 @@ impl AgentVault {
     /// Full refund of unspent locked amount.
     pub fn cancel_task(env: Env, user: Address, task_id: u64) {
         user.require_auth();
+        let task_key = DataKey::Task(task_id);
         let task: TaskInfo = env
             .storage()
             .persistent()
-            .get(&DataKey::Task(task_id))
+            .get(&task_key)
             .expect("Task not found");
+        Self::extend_persistent_ttl(&env, &task_key);
         assert!(task.user == user, "Not your task");
         Self::finalize_task(&env, task_id, None);
     }
@@ -425,11 +459,13 @@ impl AgentVault {
     /// Safety escape hatch: anyone can finalize a task stuck for >30 minutes.
     /// Does not transfer any funds — only restores user's balance accounting.
     pub fn force_complete_stale_task(env: Env, task_id: u64) {
+        let task_key = DataKey::Task(task_id);
         let task: TaskInfo = env
             .storage()
             .persistent()
-            .get(&DataKey::Task(task_id))
+            .get(&task_key)
             .expect("Task not found");
+        Self::extend_persistent_ttl(&env, &task_key);
         assert!(!task.completed, "Task already completed");
 
         let now = env.ledger().timestamp();
@@ -442,7 +478,7 @@ impl AgentVault {
         Self::finalize_task(&env, task_id, None);
     }
 
-    // ── Internal helpers ──────────────────────────────────────────────────────
+    // ── Internal helpers ────────────────────────────────────────────────
 
     /// Shared finalization logic for `complete_task`, `cancel_task`, and
     /// `force_complete_stale_task`. Unlocks `plan_cost` from the user's balance,
@@ -451,22 +487,26 @@ impl AgentVault {
     /// If `expected_orchestrator` is `Some`, the caller must match the task's
     /// registered orchestrator (used by `complete_task`).
     fn finalize_task(env: &Env, task_id: u64, expected_orchestrator: Option<&Address>) {
+        let task_key = DataKey::Task(task_id);
         let mut task: TaskInfo = env
             .storage()
             .persistent()
-            .get(&DataKey::Task(task_id))
+            .get(&task_key)
             .expect("Task not found");
+        Self::extend_persistent_ttl(env, &task_key);
         assert!(!task.completed, "Already completed");
 
         if let Some(orch) = expected_orchestrator {
             assert!(task.orchestrator == *orch, "Not authorized");
         }
 
+        let user_key = DataKey::User(task.user.clone());
         let mut account: UserAccount = env
             .storage()
             .persistent()
-            .get(&DataKey::User(task.user.clone()))
+            .get(&user_key)
             .expect("User not found");
+        Self::extend_persistent_ttl(env, &user_key);
 
         // Unlock plan_cost from locked, deduct only actual spend from balance.
         // Refund = plan_cost - spent is implicitly restored to available balance.
@@ -474,14 +514,12 @@ impl AgentVault {
         account.balance -= task.spent;
         account.total_spent += task.spent;
         account.active_tasks_count -= 1;
-        env.storage()
-            .persistent()
-            .set(&DataKey::User(task.user.clone()), &account);
+        env.storage().persistent().set(&user_key, &account);
+        Self::extend_persistent_ttl(env, &user_key);
 
         task.completed = true;
-        env.storage()
-            .persistent()
-            .set(&DataKey::Task(task_id), &task);
+        env.storage().persistent().set(&task_key, &task);
+        Self::extend_persistent_ttl(env, &task_key);
 
         let refund = task.plan_cost - task.spent;
         TaskDoneEvent {
@@ -503,9 +541,11 @@ impl AgentVault {
     /// Loads the user's account, or returns a fresh zeroed [`UserAccount`] if
     /// this is their first interaction with the contract.
     fn get_or_create_account(env: &Env, user: &Address) -> UserAccount {
-        env.storage()
+        let key = DataKey::User(user.clone());
+        let account = env
+            .storage()
             .persistent()
-            .get::<_, UserAccount>(&DataKey::User(user.clone()))
+            .get::<_, UserAccount>(&key)
             .unwrap_or(UserAccount {
                 balance: 0,
                 locked: 0,
@@ -515,52 +555,109 @@ impl AgentVault {
                 orchestrator: None,
                 orchestrator_name: String::from_str(env, ""),
                 created_at: env.ledger().timestamp(),
-            })
+            });
+        // Only bump TTL if the entry already exists — a not-yet-written key
+        // has no TTL to extend, and extend_ttl on a missing entry would panic.
+        if env.storage().persistent().has(&key) {
+            Self::extend_persistent_ttl(env, &key);
+        }
+        account
     }
 
-    // ── Read-only views ───────────────────────────────────────────────────────
+    /// Extends the TTL of a persistent storage entry if its remaining TTL has
+    /// dropped below `PERSISTENT_TTL_THRESHOLD` ledgers, bumping it to
+    /// `PERSISTENT_TTL_EXTEND_TO` ledgers from the current ledger. No-op if
+    /// the entry's TTL is still above the threshold, or if the entry doesn't
+    /// exist (callers are responsible for checking existence first when the
+    /// entry may not have been written yet).
+    fn extend_persistent_ttl(env: &Env, key: &DataKey) {
+        env.storage().persistent().extend_ttl(
+            key,
+            PERSISTENT_TTL_THRESHOLD,
+            PERSISTENT_TTL_EXTEND_TO,
+        );
+    }
+
+    /// Extends the TTL of the contract's instance storage (shared by `Admin`,
+    /// `UsdcSac`, and `TaskCounter`) if its remaining TTL has dropped below
+    /// `INSTANCE_TTL_THRESHOLD` ledgers.
+    fn extend_instance_ttl(env: &Env) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_EXTEND_TO);
+    }
+
+    // ── Read-only views ─────────────────────────────────────────────────
 
     /// Total USDC balance for user (available + locked), in stroops.
     pub fn get_balance(env: Env, user: Address) -> i128 {
-        env.storage()
+        let key = DataKey::User(user);
+        let result = env
+            .storage()
             .persistent()
-            .get::<_, UserAccount>(&DataKey::User(user))
+            .get::<_, UserAccount>(&key)
             .map(|a| a.balance)
-            .unwrap_or(0)
+            .unwrap_or(0);
+        if env.storage().persistent().has(&key) {
+            Self::extend_persistent_ttl(&env, &key);
+        }
+        result
     }
 
     /// Available (non-locked) USDC for user, in stroops.
     pub fn get_available(env: Env, user: Address) -> i128 {
-        env.storage()
+        let key = DataKey::User(user);
+        let result = env
+            .storage()
             .persistent()
-            .get::<_, UserAccount>(&DataKey::User(user))
+            .get::<_, UserAccount>(&key)
             .map(|a| a.balance - a.locked)
-            .unwrap_or(0)
+            .unwrap_or(0);
+        if env.storage().persistent().has(&key) {
+            Self::extend_persistent_ttl(&env, &key);
+        }
+        result
     }
 
     /// Full account record for a user (balance, locked, orchestrator, etc.).
     pub fn get_account(env: Env, user: Address) -> Option<UserAccount> {
-        env.storage().persistent().get(&DataKey::User(user))
+        let key = DataKey::User(user);
+        let result = env.storage().persistent().get(&key);
+        if env.storage().persistent().has(&key) {
+            Self::extend_persistent_ttl(&env, &key);
+        }
+        result
     }
 
     /// Full task record by task_id.
     pub fn get_task(env: Env, task_id: u64) -> Option<TaskInfo> {
-        env.storage().persistent().get(&DataKey::Task(task_id))
+        let key = DataKey::Task(task_id);
+        let result = env.storage().persistent().get(&key);
+        if env.storage().persistent().has(&key) {
+            Self::extend_persistent_ttl(&env, &key);
+        }
+        result
     }
 
     /// Reverse lookup: given an orchestrator address, return the user it belongs to.
     pub fn get_orchestrator_owner(env: Env, orchestrator: Address) -> Option<Address> {
-        env.storage()
-            .persistent()
-            .get(&DataKey::OrchestratorOwner(orchestrator))
+        let key = DataKey::OrchestratorOwner(orchestrator);
+        let result = env.storage().persistent().get(&key);
+        if env.storage().persistent().has(&key) {
+            Self::extend_persistent_ttl(&env, &key);
+        }
+        result
     }
 
     /// Total number of tasks ever created across all users.
     pub fn task_count(env: Env) -> u64 {
-        env.storage()
+        let result = env
+            .storage()
             .instance()
             .get(&DataKey::TaskCounter)
-            .unwrap_or(0)
+            .unwrap_or(0);
+        Self::extend_instance_ttl(&env);
+        result
     }
 }
 
