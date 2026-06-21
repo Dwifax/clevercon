@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { AgentRecord } from '@clevercon/common';
-import { writeJsonSafe } from '@clevercon/common';
+import { writeJsonSafe, logger } from '@clevercon/common';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', '..', '..', 'data');
@@ -20,6 +20,9 @@ let cache: AgentRecord[] | null = null;
 
 /** In-process write queue — serializes all disk writes. */
 let writeQueue: Promise<void> = Promise.resolve();
+
+/** Track consecutive write failures to surface persistent I/O issues. */
+let consecutiveWriteFailures = 0;
 
 /**
  * Load all registered agents from `data/registry.json`.
@@ -46,9 +49,13 @@ export function saveAgents(agents: AgentRecord[]): void {
   cache = agents;
   writeQueue = writeQueue.then(() => {
     writeJsonSafe(REGISTRY_FILE, agents);
+    consecutiveWriteFailures = 0;
   }).catch((err) => {
-    console.error('Registry save failed:', err);
-    return; // keep the queue alive so subsequent writes still run
+    consecutiveWriteFailures++;
+    logger.error('Registry save failed', err instanceof Error ? err.message : String(err));
+    if (consecutiveWriteFailures >= 3) {
+      logger.warn(`Registry: ${consecutiveWriteFailures} consecutive write failures — in-memory cache may diverge from disk`);
+    }
   });
 }
 
