@@ -709,3 +709,123 @@ fn test_force_complete_stale_task_succeeds_after_threshold() {
     assert_eq!(account.balance, 500); // 0 spent
     assert_eq!(account.active_tasks_count, 0);
 }
+// ── TTL Extension Tests ─────────────────────────────────────────────────
+
+#[test]
+fn test_user_account_survives_ttl_after_extension() {
+    let test_env = setup_test();
+    test_env.client.init(&test_env.admin, &test_env.usdc_sac);
+
+    let user = Address::generate(&test_env.env);
+    test_env.token_admin_client.mint(&user, &1000);
+
+    // Deposit creates the UserAccount entry and (per the fix) extends its TTL
+    // to PERSISTENT_TTL_EXTEND_TO (~30 days / 518_400 ledgers) from the
+    // current ledger.
+    test_env.client.deposit(&user, &400);
+
+    // Sanity check: account is readable immediately after deposit.
+    let account = test_env.client.get_account(&user).unwrap();
+    assert_eq!(account.balance, 400);
+
+    // Advance the ledger sequence number well past the TTL extension
+    // threshold (17_280, ~1 day) but still within the extended TTL window
+    // (518_400, ~30 days) that the deposit call should have set. Before the
+    // extend_ttl fix, this contract made zero extend_ttl calls, so a
+    // persistent entry's TTL would simply be whatever the default test
+    // environment TTL is â€” this test would fail without the fix if that
+    // default is below the sequence number we advance to.
+    let starting_sequence = test_env.env.ledger().sequence();
+    test_env
+        .env
+        .ledger()
+        .set_sequence_number(starting_sequence + 300_000);
+
+    // The account must still be reachable: this is the core regression this
+    // issue describes â€” a UserAccount silently becoming inaccessible after
+    // a period of inactivity because its TTL was never extended.
+    let account_after_advance = test_env.client.get_account(&user).unwrap();
+    assert_eq!(account_after_advance.balance, 400);
+    assert_eq!(account_after_advance.total_deposited, 400);
+
+    // get_balance and get_available, which also touch DataKey::User, must
+    // likewise still succeed and return correct values.
+    assert_eq!(test_env.client.get_balance(&user), 400);
+    assert_eq!(test_env.client.get_available(&user), 400);
+}
+
+#[test]
+fn test_task_and_orchestrator_owner_entries_survive_ttl_after_extension() {
+    let test_env = setup_test();
+    test_env.client.init(&test_env.admin, &test_env.usdc_sac);
+
+    let user = Address::generate(&test_env.env);
+    let orchestrator = Address::generate(&test_env.env);
+
+    test_env.token_admin_client.mint(&user, &1000);
+    test_env.client.deposit(&user, &500);
+    test_env.client.register_orchestrator(
+        &user,
+        &orchestrator,
+        &soroban_sdk::String::from_str(&test_env.env, "test-orch"),
+    );
+
+    let task_id = test_env.client.create_task(&orchestrator, &200);
+
+    // Advance the ledger sequence number well past the TTL extension
+    // threshold, simulating a long period of inactivity on this task and
+    // on the orchestrator's reverse-lookup entry.
+    let starting_sequence = test_env.env.ledger().sequence();
+    test_env
+        .env
+        .ledger()
+        .set_sequence_number(starting_sequence + 300_000);
+
+    // DataKey::Task(task_id) must still be reachable.
+    let task = test_env.client.get_task(&task_id).unwrap();
+    assert_eq!(task.plan_cost, 200);
+    assert!(!task.completed);
+
+    // DataKey::OrchestratorOwner(orchestrator) must still be reachable â€”
+    // exercised indirectly via create_task's internal lookup, and directly
+    // via the public getter here.
+    let owner = test_env
+        .client
+        .get_orchestrator_owner(&orchestrator)
+        .unwrap();
+    assert_eq!(owner, user);
+
+    // Instance storage (TaskCounter, read via task_count) must also have
+    // survived the same ledger advance, since instance entries share one
+    // TTL that must be bumped on any call that reads them.
+    assert_eq!(test_env.client.task_count(), 1);
+}
+
+#[test]
+fn test_instance_storage_survives_ttl_after_extension() {
+    let test_env = setup_test();
+    test_env.client.init(&test_env.admin, &test_env.usdc_sac);
+
+    // Advance the ledger sequence number well past the TTL extension
+    // threshold immediately after init, with no further contract
+    // interaction in between, to specifically exercise instance storage
+    // (Admin, UsdcSac, TaskCounter) rather than any persistent entry.
+    let starting_sequence = test_env.env.ledger().sequence();
+    test_env
+        .env
+        .ledger()
+        .set_sequence_number(starting_sequence + 300_000);
+
+    // A deposit call reads UsdcSac from instance storage internally; if
+    // instance TTL had expired, this would fail. This also implicitly
+    // confirms init's extend_instance_ttl call set a long enough TTL.
+    let user = Address::generate(&test_env.env);
+    test_env.token_admin_client.mint(&user, &1000);
+    test_env.client.deposit(&user, &100);
+
+    let account = test_env.client.get_account(&user).unwrap();
+    assert_eq!(account.balance, 100);
+
+    // task_count reads TaskCounter directly from instance storage.
+    assert_eq!(test_env.client.task_count(), 0);
+}
