@@ -59,7 +59,7 @@ export function validateRegistration(body: Record<string, unknown>): string[] {
     typeof body.pricing !== 'object' ||
     Array.isArray(body.pricing)
   ) {
-    invalid.push('pricing.model', 'pricing.price_per_call');
+    invalid.push('pricing.model', 'pricing.price_per_call', 'pricing.currency');
   } else {
     const pricing = body.pricing as Record<string, unknown>;
 
@@ -77,6 +77,11 @@ export function validateRegistration(body: Record<string, unknown>): string[] {
       pricing.price_per_call <= 0
     ) {
       invalid.push('pricing.price_per_call');
+    }
+
+    // currency: must be 'USDC' per AgentManifest contract
+    if (pricing.currency !== 'USDC') {
+      invalid.push('pricing.currency');
     }
   }
 

@@ -22,7 +22,6 @@ app.post('/register', (req, res) => {
   const required = [
     'agent_id',
     'name',
-    'description',
     'capabilities',
     'pricing',
     'endpoint',

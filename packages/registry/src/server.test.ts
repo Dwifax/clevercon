@@ -247,20 +247,45 @@ describe('validateRegistration — pricing.price_per_call', () => {
 });
 
 // ---------------------------------------------------------------------------
+// pricing.currency
+// ---------------------------------------------------------------------------
+
+describe('validateRegistration — pricing.currency', () => {
+  it('rejects a missing currency', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { currency: _omit, ...pricingWithoutCurrency } = validBody.pricing;
+    const body = withOverride({ pricing: pricingWithoutCurrency });
+    expect(validateRegistration(body)).toContain('pricing.currency');
+  });
+
+  it('rejects a currency other than USDC', () => {
+    const body = withOverride({ pricing: { ...validBody.pricing, currency: 'XLM' } });
+    expect(validateRegistration(body)).toContain('pricing.currency');
+  });
+
+  it('accepts USDC', () => {
+    const body = withOverride({ pricing: { ...validBody.pricing, currency: 'USDC' } });
+    expect(validateRegistration(body)).not.toContain('pricing.currency');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // pricing object missing entirely
 // ---------------------------------------------------------------------------
 
 describe('validateRegistration — missing pricing object', () => {
-  it('reports both pricing sub-fields when pricing is null', () => {
+  it('reports all three pricing sub-fields when pricing is null', () => {
     const fields = validateRegistration(withOverride({ pricing: null }));
     expect(fields).toContain('pricing.model');
     expect(fields).toContain('pricing.price_per_call');
+    expect(fields).toContain('pricing.currency');
   });
 
-  it('reports both pricing sub-fields when pricing is a plain string', () => {
+  it('reports all three pricing sub-fields when pricing is a plain string', () => {
     const fields = validateRegistration(withOverride({ pricing: 'x402:0.05' }));
     expect(fields).toContain('pricing.model');
     expect(fields).toContain('pricing.price_per_call');
+    expect(fields).toContain('pricing.currency');
   });
 });
 
@@ -286,5 +311,6 @@ describe('validateRegistration — multiple errors', () => {
     expect(fields).toContain('capabilities');
     expect(fields).toContain('pricing.model');
     expect(fields).toContain('pricing.price_per_call');
+    expect(fields).toContain('pricing.currency');
   });
 });
