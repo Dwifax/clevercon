@@ -880,7 +880,9 @@ fn test_create_task_reverts_when_paused() {
 
     test_env.token_admin_client.mint(&user, &1000);
     test_env.client.deposit(&user, &500);
-    test_env.client.register_orchestrator(&user, &orchestrator, &name);
+    test_env
+        .client
+        .register_orchestrator(&user, &orchestrator, &name);
 
     test_env.client.pause(&test_env.admin);
     test_env.client.create_task(&orchestrator, &300);
@@ -897,11 +899,15 @@ fn test_release_payment_reverts_when_paused() {
 
     test_env.token_admin_client.mint(&user, &1000);
     test_env.client.deposit(&user, &500);
-    test_env.client.register_orchestrator(&user, &orchestrator, &name);
+    test_env
+        .client
+        .register_orchestrator(&user, &orchestrator, &name);
     let task_id = test_env.client.create_task(&orchestrator, &300);
 
     test_env.client.pause(&test_env.admin);
-    test_env.client.release_payment(&orchestrator, &task_id, &100);
+    test_env
+        .client
+        .release_payment(&orchestrator, &task_id, &100);
 }
 
 #[test]
@@ -914,7 +920,9 @@ fn test_withdraw_and_cancel_work_while_paused() {
 
     test_env.token_admin_client.mint(&user, &1000);
     test_env.client.deposit(&user, &500);
-    test_env.client.register_orchestrator(&user, &orchestrator, &name);
+    test_env
+        .client
+        .register_orchestrator(&user, &orchestrator, &name);
     let task_id = test_env.client.create_task(&orchestrator, &300);
 
     test_env.client.pause(&test_env.admin);

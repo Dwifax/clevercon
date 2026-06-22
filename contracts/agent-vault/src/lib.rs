@@ -679,7 +679,11 @@ impl AgentVault {
     /// Pauses the contract, blocking deposit, create_task, and release_payment.
     pub fn pause(env: Env, admin: Address) {
         admin.require_auth();
-        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).expect("Not initialized");
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Not initialized");
         assert!(admin == stored_admin, "admin must match stored admin");
 
         env.storage().instance().set(&DataKey::Paused, &true);
@@ -689,7 +693,11 @@ impl AgentVault {
     /// Unpauses the contract, restoring normal operation.
     pub fn unpause(env: Env, admin: Address) {
         admin.require_auth();
-        let stored_admin: Address = env.storage().instance().get(&DataKey::Admin).expect("Not initialized");
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Not initialized");
         assert!(admin == stored_admin, "admin must match stored admin");
 
         env.storage().instance().set(&DataKey::Paused, &false);
@@ -698,7 +706,11 @@ impl AgentVault {
 
     /// Returns true if the contract is paused.
     pub fn is_paused(env: Env) -> bool {
-        let paused = env.storage().instance().get(&DataKey::Paused).unwrap_or(false);
+        let paused = env
+            .storage()
+            .instance()
+            .get(&DataKey::Paused)
+            .unwrap_or(false);
         Self::extend_instance_ttl(&env);
         paused
     }
