@@ -102,6 +102,8 @@ pub enum DataKey {
     OrchestratorOwner(Address),
     /// Maps an asset address to a boolean indicating support status.
     AssetSupported(Address),
+    /// Returns true if the contract is paused.
+    Paused,
 }
 
 // Data structs
@@ -276,6 +278,7 @@ impl AgentVault {
     /// Deposit supported tokens from user's external wallet into their vault balance.
     pub fn deposit(env: Env, user: Address, asset: Address, amount: i128) {
         user.require_auth();
+        Self::require_not_paused(&env);
         assert!(amount > 0, "Deposit must be positive");
         assert!(
             Self::is_supported_asset(env.clone(), asset.clone()),
@@ -412,6 +415,7 @@ impl AgentVault {
     /// Returns the new task_id. Only one active task per user at a time.
     pub fn create_task(env: Env, orchestrator: Address, asset: Address, plan_cost: i128) -> u64 {
         orchestrator.require_auth();
+        Self::require_not_paused(&env);
         assert!(plan_cost > 0, "Plan cost must be positive");
         assert!(
             Self::is_supported_asset(env.clone(), asset.clone()),
@@ -514,6 +518,7 @@ impl AgentVault {
         amount: i128,
     ) -> bool {
         orchestrator.require_auth();
+        Self::require_not_paused(&env);
         assert!(amount > 0, "Amount must be positive");
 
         let task_key = DataKey::Task(task_id);

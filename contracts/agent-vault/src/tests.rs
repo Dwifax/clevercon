@@ -995,7 +995,9 @@ fn test_multi_asset_deposit_withdraw_task_flow() {
     // Withdraw remaining XLM
     test_env.client.withdraw(&user, &xlm_sac, &600);
     assert_eq!(xlm_client.balance(&user), 1800); // 2000 initial - 800 deposit + 600 withdraw
-// ── 10. Pause / Unpause Tests ───────────────────────────────────────────────
+}
+
+// 10. Pause / Unpause Tests
 
 #[test]
 fn test_is_paused_default_false() {
@@ -1031,7 +1033,7 @@ fn test_deposit_reverts_when_paused() {
     test_env.token_admin_client.mint(&user, &1000);
 
     test_env.client.pause(&test_env.admin);
-    test_env.client.deposit(&user, &100);
+    test_env.client.deposit(&user, &test_env.usdc_sac, &100);
 }
 
 #[test]
@@ -1044,13 +1046,15 @@ fn test_create_task_reverts_when_paused() {
     let name = soroban_sdk::String::from_str(&test_env.env, "Orchestrator");
 
     test_env.token_admin_client.mint(&user, &1000);
-    test_env.client.deposit(&user, &500);
+    test_env.client.deposit(&user, &test_env.usdc_sac, &500);
     test_env
         .client
         .register_orchestrator(&user, &orchestrator, &name);
 
     test_env.client.pause(&test_env.admin);
-    test_env.client.create_task(&orchestrator, &300);
+    test_env
+        .client
+        .create_task(&orchestrator, &test_env.usdc_sac, &300);
 }
 
 #[test]
@@ -1063,16 +1067,18 @@ fn test_release_payment_reverts_when_paused() {
     let name = soroban_sdk::String::from_str(&test_env.env, "Orchestrator");
 
     test_env.token_admin_client.mint(&user, &1000);
-    test_env.client.deposit(&user, &500);
+    test_env.client.deposit(&user, &test_env.usdc_sac, &500);
     test_env
         .client
         .register_orchestrator(&user, &orchestrator, &name);
-    let task_id = test_env.client.create_task(&orchestrator, &300);
+    let task_id = test_env
+        .client
+        .create_task(&orchestrator, &test_env.usdc_sac, &300);
 
     test_env.client.pause(&test_env.admin);
     test_env
         .client
-        .release_payment(&orchestrator, &task_id, &100);
+        .release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &100);
 }
 
 #[test]
@@ -1084,11 +1090,13 @@ fn test_withdraw_and_cancel_work_while_paused() {
     let name = soroban_sdk::String::from_str(&test_env.env, "Orchestrator");
 
     test_env.token_admin_client.mint(&user, &1000);
-    test_env.client.deposit(&user, &500);
+    test_env.client.deposit(&user, &test_env.usdc_sac, &500);
     test_env
         .client
         .register_orchestrator(&user, &orchestrator, &name);
-    let task_id = test_env.client.create_task(&orchestrator, &300);
+    let task_id = test_env
+        .client
+        .create_task(&orchestrator, &test_env.usdc_sac, &300);
 
     test_env.client.pause(&test_env.admin);
 
@@ -1098,9 +1106,12 @@ fn test_withdraw_and_cancel_work_while_paused() {
     assert!(task.completed);
 
     // Withdraw should work while paused
-    test_env.client.withdraw(&user, &500);
+    test_env.client.withdraw(&user, &test_env.usdc_sac, &500);
     assert_eq!(test_env.token_client.balance(&user), 1000);
-    let account = test_env.client.get_account(&user).unwrap();
+    let account = test_env
+        .client
+        .get_account(&user, &test_env.usdc_sac)
+        .unwrap();
     assert_eq!(account.balance, 0);
 }
 
@@ -1115,7 +1126,7 @@ fn test_unpause_restores_deposit() {
     test_env.client.unpause(&test_env.admin);
 
     // Deposit should succeed after unpausing
-    test_env.client.deposit(&user, &100);
+    test_env.client.deposit(&user, &test_env.usdc_sac, &100);
     assert_eq!(test_env.token_client.balance(&user), 900);
 }
 
