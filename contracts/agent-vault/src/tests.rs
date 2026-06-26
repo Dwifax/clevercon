@@ -73,7 +73,9 @@ fn test_init() {
 fn test_init_twice_panics() {
     let test_env = setup_test();
     test_env.client.init(&test_env.admin, &test_env.usdc_sac);
-    let result = test_env.client.try_init(&test_env.admin, &test_env.usdc_sac);
+    let result = test_env
+        .client
+        .try_init(&test_env.admin, &test_env.usdc_sac);
     assert!(result == Err(Ok(VaultError::AlreadyInitialized)));
 }
 
@@ -169,7 +171,9 @@ fn test_withdraw_insufficient_fails() {
     let user = Address::generate(&test_env.env);
     test_env.token_admin_client.mint(&user, &1000);
     test_env.client.deposit(&user, &test_env.usdc_sac, &600);
-    let result = test_env.client.try_withdraw(&user, &test_env.usdc_sac, &601);
+    let result = test_env
+        .client
+        .try_withdraw(&user, &test_env.usdc_sac, &601);
     assert!(result == Err(Ok(VaultError::InsufficientBalance)));
 }
 
@@ -207,7 +211,9 @@ fn test_withdraw_negative_fails() {
     let user = Address::generate(&test_env.env);
     test_env.token_admin_client.mint(&user, &1000);
     test_env.client.deposit(&user, &test_env.usdc_sac, &600);
-    let result = test_env.client.try_withdraw(&user, &test_env.usdc_sac, &-10);
+    let result = test_env
+        .client
+        .try_withdraw(&user, &test_env.usdc_sac, &-10);
     assert!(result == Err(Ok(VaultError::InvalidAmount)));
 }
 
@@ -458,9 +464,10 @@ fn test_release_payment_exceeds_plan_cost_fails() {
         .client
         .create_task(&orchestrator, &test_env.usdc_sac, &300);
 
-    let result = test_env
-        .client
-        .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &301);
+    let result =
+        test_env
+            .client
+            .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &301);
     assert!(result == Err(Ok(VaultError::ExceedsPlanCost)));
 }
 
@@ -489,9 +496,10 @@ fn test_release_payment_on_completed_task_fails() {
     test_env.client.complete_task(&orchestrator, &task_id);
 
     // Try releasing on completed task
-    let result = test_env
-        .client
-        .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &50);
+    let result =
+        test_env
+            .client
+            .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &50);
     assert!(result == Err(Ok(VaultError::TaskAlreadyCompleted)));
 }
 
@@ -516,9 +524,12 @@ fn test_release_payment_unauthorized_orchestrator_fails() {
         .create_task(&orchestrator, &test_env.usdc_sac, &300);
 
     // Call release_payment with wrong orchestrator
-    let result = test_env
-        .client
-        .try_release_payment(&wrong_orchestrator, &task_id, &test_env.usdc_sac, &100);
+    let result = test_env.client.try_release_payment(
+        &wrong_orchestrator,
+        &task_id,
+        &test_env.usdc_sac,
+        &100,
+    );
     assert!(result == Err(Ok(VaultError::NotYourOrchestrator)));
 }
 
@@ -542,9 +553,10 @@ fn test_release_payment_zero_amount_fails() {
         .create_task(&orchestrator, &test_env.usdc_sac, &300);
 
     // Call release_payment with 0 amount
-    let result = test_env
-        .client
-        .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &0);
+    let result =
+        test_env
+            .client
+            .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &0);
     assert!(result == Err(Ok(VaultError::InvalidAmount)));
 }
 
@@ -568,9 +580,10 @@ fn test_release_payment_negative_amount_fails() {
         .create_task(&orchestrator, &test_env.usdc_sac, &300);
 
     // Call release_payment with negative amount
-    let result = test_env
-        .client
-        .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &-50);
+    let result =
+        test_env
+            .client
+            .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &-50);
     assert!(result == Err(Ok(VaultError::InvalidAmount)));
 }
 
@@ -642,7 +655,9 @@ fn test_complete_task_unauthorized_orchestrator_fails() {
         .create_task(&orchestrator, &test_env.usdc_sac, &300);
 
     // Call complete_task with wrong orchestrator
-    let result = test_env.client.try_complete_task(&wrong_orchestrator, &task_id);
+    let result = test_env
+        .client
+        .try_complete_task(&wrong_orchestrator, &task_id);
     assert!(result == Err(Ok(VaultError::NotYourOrchestrator)));
 }
 
@@ -1075,9 +1090,10 @@ fn test_release_payment_reverts_when_paused() {
         .create_task(&orchestrator, &test_env.usdc_sac, &300);
 
     test_env.client.pause(&test_env.admin);
-    let result = test_env
-        .client
-        .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &100);
+    let result =
+        test_env
+            .client
+            .try_release_payment(&orchestrator, &task_id, &test_env.usdc_sac, &100);
     assert!(result == Err(Ok(VaultError::ContractPaused)));
 }
 

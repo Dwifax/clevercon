@@ -306,7 +306,12 @@ impl AgentVault {
     // Deposits & Withdrawals
 
     /// Deposit supported tokens from user's external wallet into their vault balance.
-    pub fn deposit(env: Env, user: Address, asset: Address, amount: i128) -> Result<(), VaultError> {
+    pub fn deposit(
+        env: Env,
+        user: Address,
+        asset: Address,
+        amount: i128,
+    ) -> Result<(), VaultError> {
         user.require_auth();
         Self::require_not_paused(&env)?;
         if amount <= 0 {
@@ -353,7 +358,12 @@ impl AgentVault {
 
     /// Withdraw tokens from vault back to user's external wallet.
     /// BLOCKED while any task is active (active_tasks_count > 0).
-    pub fn withdraw(env: Env, user: Address, asset: Address, amount: i128) -> Result<(), VaultError> {
+    pub fn withdraw(
+        env: Env,
+        user: Address,
+        asset: Address,
+        amount: i128,
+    ) -> Result<(), VaultError> {
         user.require_auth();
         if amount <= 0 {
             return Err(VaultError::InvalidAmount);
@@ -411,7 +421,12 @@ impl AgentVault {
     // Orchestrator registration
 
     /// Register a personal orchestrator for this user. ONE-TIME per user.
-    pub fn register_orchestrator(env: Env, user: Address, orchestrator: Address, name: String) -> Result<(), VaultError> {
+    pub fn register_orchestrator(
+        env: Env,
+        user: Address,
+        orchestrator: Address,
+        name: String,
+    ) -> Result<(), VaultError> {
         user.require_auth();
 
         let mut config = Self::get_or_create_config(&env, &user);
@@ -449,7 +464,12 @@ impl AgentVault {
 
     /// Orchestrator creates a task, locking plan_cost from user's available balance in the specified asset.
     /// Returns the new task_id. Only one active task per user at a time.
-    pub fn create_task(env: Env, orchestrator: Address, asset: Address, plan_cost: i128) -> Result<u64, VaultError> {
+    pub fn create_task(
+        env: Env,
+        orchestrator: Address,
+        asset: Address,
+        plan_cost: i128,
+    ) -> Result<u64, VaultError> {
         orchestrator.require_auth();
         Self::require_not_paused(&env)?;
         if plan_cost <= 0 {
@@ -679,7 +699,11 @@ impl AgentVault {
     ///
     /// If `expected_orchestrator` is `Some`, the caller must match the task's
     /// registered orchestrator (used by `complete_task`).
-    fn finalize_task(env: &Env, task_id: u64, expected_orchestrator: Option<&Address>) -> Result<(), VaultError> {
+    fn finalize_task(
+        env: &Env,
+        task_id: u64,
+        expected_orchestrator: Option<&Address>,
+    ) -> Result<(), VaultError> {
         let task_key = DataKey::Task(task_id);
         let mut task: TaskInfo = env
             .storage()
