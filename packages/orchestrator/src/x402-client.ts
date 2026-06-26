@@ -92,6 +92,9 @@ export async function makeX402Payment(
       return { output, tx_hash };
     } catch (err: any) {
       lastError = err;
+      // Short-circuit retries once the step timeout has fired — no point
+      // backing off when every subsequent fetch will abort immediately.
+      if (signal?.aborted) break;
       if (attempt < MAX_ATTEMPTS) {
         const backoffMs = 2000 * attempt;
         console.warn(

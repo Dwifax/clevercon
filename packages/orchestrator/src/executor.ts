@@ -53,7 +53,8 @@ export interface ExecutorEvents {
   task_complete: { task_id: string; status: string; total_cost: number; total_time_ms: number };
 }
 
-const STEP_TIMEOUT_MS = parseInt(process.env.STEP_TIMEOUT_MS ?? '30000', 10);
+const _parsed = parseInt(process.env.STEP_TIMEOUT_MS ?? '30000', 10);
+const STEP_TIMEOUT_MS = Number.isFinite(_parsed) && _parsed > 0 ? _parsed : 30000;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -302,6 +303,9 @@ export class PlanExecutor extends EventEmitter {
       let releaseHash: string | null = null;
       if (VAULT_ACTIVE && this.orchestratorKeypair && this.vaultTaskId !== null) {
         const released = await this.releaseSequential(async () => {
+          // Re-check after acquiring the serialization lock — the step may
+          // have timed out while we were waiting for a prior release.
+          if (signal?.aborted) return null;
           return releasePayment(this.orchestratorKeypair!, this.vaultTaskId!, amountUsdc);
         });
 
