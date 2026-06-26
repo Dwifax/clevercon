@@ -127,6 +127,7 @@ pub enum DataKey {
     AssetSupported(Address),
     /// Returns true if the contract is paused.
     Paused,
+    UserTasks(Address),
 }
 
 // Data structs
@@ -540,6 +541,15 @@ impl AgentVault {
         let task_key = DataKey::Task(counter);
         env.storage().persistent().set(&task_key, &task);
         Self::extend_persistent_ttl(&env, &task_key);
+        let tasks_key = DataKey::UserTasks(user.clone());
+        let mut user_tasks: soroban_sdk::Vec<u64> = env
+            .storage()
+            .persistent()
+            .get(&tasks_key)
+            .unwrap_or(soroban_sdk::Vec::new(&env));
+        user_tasks.push_back(counter);
+        env.storage().persistent().set(&tasks_key, &user_tasks);
+        Self::extend_persistent_ttl(&env, &tasks_key);
 
         env.storage()
             .instance()
@@ -908,6 +918,19 @@ impl AgentVault {
     pub fn get_task(env: Env, task_id: u64) -> Option<TaskInfo> {
         let key = DataKey::Task(task_id);
         let result = env.storage().persistent().get(&key);
+        if env.storage().persistent().has(&key) {
+            Self::extend_persistent_ttl(&env, &key);
+        }
+        result
+    }
+
+    pub fn get_user_tasks(env: Env, user: Address) -> soroban_sdk::Vec<u64> {
+        let key = DataKey::UserTasks(user);
+        let result = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(soroban_sdk::Vec::new(&env));
         if env.storage().persistent().has(&key) {
             Self::extend_persistent_ttl(&env, &key);
         }
