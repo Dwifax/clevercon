@@ -1021,13 +1021,30 @@ export async function sendWebhookWithRetry(webhookUrl: string, payload: unknown)
     result = await send();
   }
 
-  if (result.error) {
-    console.error(
-      `[Orchestrator] Webhook delivery failed after retrying: ${(result.error as Error).message ?? String(result.error)}`,
+  // Sanitise logging to only output the origin (preventing path/query parameter leaks)
+  let sanitizedUrl = webhookUrl;
+  try {
+    sanitizedUrl = new URL(webhookUrl).origin;
+  } catch {
+    // fallback if URL parsing fails
+  }
+
+  const isSuccess =
+    result.error === undefined &&
+    result.status !== undefined &&
+    result.status >= 200 &&
+    result.status < 300;
+
+  if (isSuccess) {
+    console.log(
+      `[Orchestrator] Webhook delivered to ${sanitizedUrl} with HTTP status ${result.status}`,
     );
   } else {
-    console.log(
-      `[Orchestrator] Webhook delivered to ${webhookUrl} with HTTP status ${result.status}`,
+    const details = result.error
+      ? ((result.error as Error).message ?? String(result.error))
+      : `HTTP status ${result.status}`;
+    console.error(
+      `[Orchestrator] Webhook delivery failed to ${sanitizedUrl}: ${details}`,
     );
   }
 }
