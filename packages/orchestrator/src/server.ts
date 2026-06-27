@@ -893,7 +893,8 @@ export function validateWebhookUrl(webhook_url: any): boolean {
     if (hostname.startsWith('[') && hostname.endsWith(']')) {
       const ipv6 = hostname.slice(1, -1);
       if (ipv6 === '::1' || ipv6 === '0:0:0:0:0:0:0:1') return false;
-      if (ipv6.startsWith('fe80:') || ipv6.startsWith('fc00:') || ipv6.startsWith('fd00:')) return false;
+      if (ipv6.startsWith('fe80:') || ipv6.startsWith('fc00:') || ipv6.startsWith('fd00:'))
+        return false;
     }
 
     return true;
@@ -1043,9 +1044,7 @@ export async function sendWebhookWithRetry(webhookUrl: string, payload: unknown)
     const details = result.error
       ? ((result.error as Error).message ?? String(result.error))
       : `HTTP status ${result.status}`;
-    console.error(
-      `[Orchestrator] Webhook delivery failed to ${sanitizedUrl}: ${details}`,
-    );
+    console.error(`[Orchestrator] Webhook delivery failed to ${sanitizedUrl}: ${details}`);
   }
 }
 

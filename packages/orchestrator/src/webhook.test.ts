@@ -25,7 +25,7 @@ describe('validateWebhookUrl', () => {
   it('rejects loopback and private IPs in production mode', () => {
     const originalVitest = process.env.VITEST;
     const originalNodeEnv = process.env.NODE_ENV;
-    
+
     // Temporarily remove test/dev environment bypass flags
     delete process.env.VITEST;
     process.env.NODE_ENV = 'production';
