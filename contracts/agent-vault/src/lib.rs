@@ -914,6 +914,16 @@ impl AgentVault {
         }
     }
 
+    /// Asset-agnostic user configuration (orchestrator registration, active tasks).
+    pub fn get_user_config(env: Env, user: Address) -> Option<UserConfig> {
+        let key = DataKey::UserConfig(user);
+        let result = env.storage().persistent().get(&key);
+        if env.storage().persistent().has(&key) {
+            Self::extend_persistent_ttl(&env, &key);
+        }
+        result
+    }
+
     /// Full task record by task_id.
     pub fn get_task(env: Env, task_id: u64) -> Option<TaskInfo> {
         let key = DataKey::Task(task_id);

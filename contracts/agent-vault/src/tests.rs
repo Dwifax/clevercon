@@ -107,6 +107,11 @@ fn test_deposit_success() {
     assert_eq!(account.balance, 400);
     assert_eq!(account.total_deposited, 400);
     assert_eq!(test_env.client.get_balance(&user, &test_env.usdc_sac), 400);
+
+    // deposit persists UserConfig (required for withdraw); orchestrator stays unset
+    let config = test_env.client.get_user_config(&user).unwrap();
+    assert!(config.orchestrator.is_none());
+    assert_eq!(config.active_tasks_count, 0);
 }
 
 #[test]
@@ -218,6 +223,27 @@ fn test_withdraw_negative_fails() {
 }
 
 // 4. Register Orchestrator Tests
+
+#[test]
+fn test_get_user_config_before_and_after_register() {
+    let test_env = setup_test();
+    test_env.client.init(&test_env.admin, &test_env.usdc_sac);
+
+    let user = Address::generate(&test_env.env);
+    let orchestrator = Address::generate(&test_env.env);
+    let name = soroban_sdk::String::from_str(&test_env.env, "MyOrchestrator");
+
+    assert!(test_env.client.get_user_config(&user).is_none());
+
+    test_env
+        .client
+        .register_orchestrator(&user, &orchestrator, &name);
+
+    let config = test_env.client.get_user_config(&user).unwrap();
+    assert_eq!(config.orchestrator.unwrap(), orchestrator);
+    assert_eq!(config.orchestrator_name, name);
+    assert_eq!(config.active_tasks_count, 0);
+}
 
 #[test]
 fn test_register_orchestrator_success() {
@@ -882,11 +908,13 @@ fn test_instance_storage_survives_ttl_after_extension() {
     let test_env = setup_test();
     test_env.client.init(&test_env.admin, &test_env.usdc_sac);
 
+    // init extends instance TTL to ledger + 518_400. Advance until remaining TTL
+    // is below the 17_280 extension threshold so deposit must refresh instance storage.
     let starting_sequence = test_env.env.ledger().sequence();
     test_env
         .env
         .ledger()
-        .set_sequence_number(starting_sequence + 300_000);
+        .set_sequence_number(starting_sequence + 501_121);
 
     let user = Address::generate(&test_env.env);
     test_env.token_admin_client.mint(&user, &1000);
@@ -898,7 +926,9 @@ fn test_instance_storage_survives_ttl_after_extension() {
         .unwrap();
     assert_eq!(account.balance, 100);
 
+    // Instance storage must remain readable after deposit refreshes instance TTL.
     assert_eq!(test_env.client.task_count(), 0);
+    assert!(!test_env.client.is_paused());
 }
 
 // Multi-Asset Whitelist & Flow Tests
